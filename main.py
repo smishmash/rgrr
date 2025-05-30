@@ -2,6 +2,9 @@
 
 import argparse
 import rgrr.model as model
+import matplotlib.pyplot as plt
+import numpy as np
+import powerlaw
 
 
 def main():
@@ -61,10 +64,11 @@ def main():
         help='Output file path for the network visualization (e.g., network.png)'
     )
 
+
     parser.add_argument(
-        '--show-status',
+        '--plot-histogram',
         action='store_true',
-        help='Show detailed status of all nodes'
+        help='Plot a histogram of resource counts after simulation'
     )
 
     # Parse arguments
@@ -101,17 +105,48 @@ def main():
         
     print(f"Final total resources: {m.total_resources}")
     
-    # Show status if requested
-    if args.show_status:
-        print("\n" + "="*50)
-        simulator.print_status()
-    else:
-        # Show summary
-        distribution = simulator.get_resource_distribution()
-        print(f"\nResource distribution summary:")
-        print(f"  Min resources: {min(distribution)}")
-        print(f"  Max resources: {max(distribution)}")
-        print(f"  Average resources: {sum(distribution) / len(distribution):.2f}")
+    # Get resource distribution
+    distribution = simulator.get_resource_distribution()
+
+    # Show summary
+    print(f"\nResource distribution summary:")
+    print(f"  Min resources: {min(distribution)}")
+    print(f"  Max resources: {max(distribution)}")
+    print(f"  Average resources: {sum(distribution) / len(distribution):.2f}")
+
+    # Plot histogram and theoretical power law if requested
+    if args.plot_histogram:
+        # Create the histogram
+        counts, bins, _ = plt.hist(distribution, bins=20, density=True, alpha=0.7, edgecolor='black', label='Resource Distribution')
+
+        estimated_alpha = None
+        # Use distribution directly as it's always positive as per user feedback
+        fit = powerlaw.Fit(distribution, discrete=True)
+        estimated_alpha = fit.alpha
+        plt.title(f'Distribution of Resources per Node with Theoretical Power Law (alpha={estimated_alpha:.2f})')
+
+        # Plot the theoretical power law distribution
+        # Use the range of the histogram for the theoretical curve
+        x = np.linspace(min(distribution), max(distribution), 100)
+        
+        # Calculate scaling factor to roughly match the histogram's peak
+        # This is a heuristic; a more rigorous approach would involve normalization
+        C = 1.0 # Default scaling
+        if len(bins) > 1:
+            max_hist_density = np.max(counts)
+            # Estimate C such that C * x_min^(-alpha) is roughly max_hist_density
+            C = max_hist_density * (min(distribution) ** estimated_alpha)
+
+        # Ensure x values are positive for power law
+        x_positive = x[x > 0]
+        power_law_pdf = C * (x_positive ** (-estimated_alpha))
+        plt.plot(x_positive, power_law_pdf, color='r', linestyle='--', label=f'Theoretical Power Law (alpha={estimated_alpha:.2f},C={C:.4f})')
+
+        plt.xlabel('Resources')
+        plt.ylabel('Probability Density')
+        plt.grid(axis='y', alpha=0.75)
+        plt.legend()
+        plt.show()
 
 
 if __name__ == "__main__":
