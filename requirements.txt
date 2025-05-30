@@ -3,4 +3,4 @@ black>=23.3.0
 flake8>=6.0.0
 python-dotenv>=1.0.0
 matplotlib>=3.7.0
-powerlaw
+scipy

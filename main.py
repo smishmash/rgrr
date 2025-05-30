@@ -4,7 +4,7 @@ import argparse
 import rgrr.model as model
 import matplotlib.pyplot as plt
 import numpy as np
-import powerlaw
+from scipy.stats import pareto
 
 
 def main():
@@ -121,26 +121,20 @@ def main():
 
         estimated_alpha = None
         # Use distribution directly as it's always positive as per user feedback
-        fit = powerlaw.Fit(distribution, discrete=True)
-        estimated_alpha = fit.alpha
-        plt.title(f'Distribution of Resources per Node with Theoretical Power Law (alpha={estimated_alpha:.2f})')
+        # Fit the Pareto distribution. floc=0 fixes the location parameter at 0.
+        # The fit returns shape, loc, and scale. We are interested in the shape parameter.
+        shape, loc, scale = pareto.fit(distribution, floc=0)
+        estimated_alpha = shape
+        plt.title(f'Distribution of Resources per Node with Theoretical Pareto Distribution (alpha={estimated_alpha:.2f})')
 
-        # Plot the theoretical power law distribution
+        # Plot the theoretical Pareto distribution
         # Use the range of the histogram for the theoretical curve
         x = np.linspace(min(distribution), max(distribution), 100)
         
-        # Calculate scaling factor to roughly match the histogram's peak
-        # This is a heuristic; a more rigorous approach would involve normalization
-        C = 1.0 # Default scaling
-        if len(bins) > 1:
-            max_hist_density = np.max(counts)
-            # Estimate C such that C * x_min^(-alpha) is roughly max_hist_density
-            C = max_hist_density * (min(distribution) ** estimated_alpha)
-
-        # Ensure x values are positive for power law
+        # Ensure x values are positive for Pareto distribution
         x_positive = x[x > 0]
-        power_law_pdf = C * (x_positive ** (-estimated_alpha))
-        plt.plot(x_positive, power_law_pdf, color='r', linestyle='--', label=f'Theoretical Power Law (alpha={estimated_alpha:.2f},C={C:.4f})')
+        pareto_pdf = pareto.pdf(x_positive, b=estimated_alpha, loc=loc, scale=scale)
+        plt.plot(x_positive, pareto_pdf, color='r', linestyle='--', label=f'Theoretical Pareto (alpha={estimated_alpha:.2f})')
 
         plt.xlabel('Resources')
         plt.ylabel('Probability Density')
