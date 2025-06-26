@@ -84,7 +84,7 @@ def main():
     print(f"Initial total resources: {m.total_resources}")
     
     # Add additional resources if specified
-    if not args.add_resources:
+    if args.add_resources == 0:
         args.add_resources = m.total_resources
 
     print(f"\nAdding {args.add_resources} additional resources using '{args.method}' method...")
@@ -96,10 +96,7 @@ def main():
     elif args.method == 'even':
         simulator.add_resources_evenly(args.add_resources)
     elif args.method == 'specific':
-        success = simulator.add_resources_to_node(args.target_node, args.add_resources)
-        if not success:
-            print(f"Error: Node {args.target_node} does not exist. Valid range: 0-{args.nodes-1}")
-            return
+        simulator.add_resources_to_node(args.target_node, args.add_resources)
     else:
         print(f"Unrecognized method {args.method}.")
         

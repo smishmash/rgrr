@@ -1,5 +1,11 @@
 import unittest
-import preferential.model as model
+import sys
+import os
+
+# Add the project root to the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
+import rgrr.model as model
 
 class TestSimulator(unittest.TestCase):
 
@@ -19,14 +25,13 @@ class TestSimulator(unittest.TestCase):
         target_node_id = 0
         initial_total = self.m.total_resources
         
-        success = self.simulator.add_resources_to_node(target_node_id, amount_to_add)
-        self.assertTrue(success)
+        self.simulator.add_resources_to_node(target_node_id, amount_to_add)
         self.assertEqual(self.m.Nodes[target_node_id].resources, self.initial_resources_per_node + amount_to_add)
         self.assertEqual(self.m.total_resources, initial_total + amount_to_add)
 
         # Test adding to a non-existent node
-        success = self.simulator.add_resources_to_node(999, amount_to_add)
-        self.assertFalse(success)
+        with self.assertRaises(AssertionError):
+            self.simulator.add_resources_to_node(999, amount_to_add)
         self.assertEqual(self.m.total_resources, initial_total + amount_to_add) # Total resources should not change
 
     def test_add_resources_randomly(self):
