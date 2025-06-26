@@ -111,7 +111,7 @@ def main():
     print(f"  Max resources: {max(distribution)}")
     print(f"  Average resources: {sum(distribution) / len(distribution):.2f}")
 
-    # Plot histogram and theoretical power law if requested
+    # Plot histogram and theoretical Pareto distribution if requested
     if args.plot_histogram:
         # Create the histogram
         counts, bins, _ = plt.hist(distribution, bins=20, density=True, alpha=0.7, edgecolor='black', label='Resource Distribution')

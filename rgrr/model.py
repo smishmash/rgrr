@@ -38,6 +38,7 @@ class Node:
     def __init__(self, id: int, resources: int = 0):
         self.id = id
         self.resources = resources
+        self.resources_added = 0
 
 class Model:
     def __init__(self, size: int, resources_per_node: int = 0):
@@ -59,6 +60,7 @@ class Simulator:
         """Add a specific amount of resources to a specific node."""
         assert 0 <= node_id < len(self.model.Nodes)
         self.model.Nodes[node_id].resources += amount
+        self.model.Nodes[node_id].resources_added += amount
         self.model.total_resources += amount
         self.fenwick_tree.add(node_id, amount)
     
@@ -104,4 +106,4 @@ class Simulator:
         print(f"Total resources: {self.model.total_resources}")
         print("Node resources:")
         for node in self.model.Nodes:
-            print(f"  Node {node.id}: {node.resources} resources")
+            print(f"  Node {node.id}: {node.resources} resources ({node.resources_added} added)")

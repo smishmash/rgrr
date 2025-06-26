@@ -64,5 +64,17 @@ class TestSimulator(unittest.TestCase):
         max_res = max(distribution)
         self.assertTrue(max_res - min_res <= 1)
 
+    def test_resources_added_tracking(self):
+        # Test that resources_added is tracked correctly
+        amount_to_add = 5
+        target_node_id = 0
+        
+        self.simulator.add_resources_to_node(target_node_id, amount_to_add)
+        self.assertEqual(self.m.Nodes[target_node_id].resources_added, amount_to_add)
+
+        self.simulator.add_resources_randomly(10)
+        total_added = sum(node.resources_added for node in self.m.Nodes)
+        self.assertEqual(total_added, amount_to_add + 10)
+
 if __name__ == '__main__':
     unittest.main()
