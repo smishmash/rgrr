@@ -64,6 +64,12 @@ def main():
         help='Output file path for the network visualization (e.g., network.png)'
     )
 
+    parser.add_argument(
+        '--income-tax-rate',
+        type=float,
+        default=0.0,
+        help='Income tax rate to apply at the end of the simulation'
+    )
 
     parser.add_argument(
         '--plot-histogram',
@@ -78,7 +84,7 @@ def main():
     m = model.Model(args.nodes, args.resources)
     
     # Create simulator
-    simulator = model.Simulator(m, args.seed)
+    simulator = model.Simulator(m, args.method, args.income_tax_rate, args.seed)
     
     print(f"Created model with {args.nodes} nodes, each starting with {args.resources} resources")
     print(f"Initial total resources: {m.total_resources}")
@@ -87,29 +93,14 @@ def main():
     if args.add_resources == 0:
         args.add_resources = m.total_resources
 
-    print(f"\nAdding {args.add_resources} additional resources using '{args.method}' method...")
-    
-    if args.method == 'random':
-        simulator.add_resources_randomly(args.add_resources)
-    elif args.method == 'preferential':
-        simulator.add_resources_preferentially(args.add_resources)
-    elif args.method == 'even':
-        simulator.add_resources_evenly(args.add_resources)
-    elif args.method == 'specific':
-        simulator.add_resources_to_node(args.target_node, args.add_resources)
-    else:
-        print(f"Unrecognized method {args.method}.")
-        
-    print(f"Final total resources: {m.total_resources}")
-    
-    # Get resource distribution
-    distribution = simulator.get_resource_distribution()
+    # Run the simulation
+    simulator.run(args.add_resources, args.target_node)
 
-    # Show summary
-    print(f"\nResource distribution summary:")
-    print(f"  Min resources: {min(distribution)}")
-    print(f"  Max resources: {max(distribution)}")
-    print(f"  Average resources: {sum(distribution) / len(distribution):.2f}")
+    # Show the final status
+    simulator.show_status()
+
+    # Get the final distribution for plotting
+    distribution = simulator.get_resource_distribution()
 
     # Plot histogram and theoretical Pareto distribution if requested
     if args.plot_histogram:
