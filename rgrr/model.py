@@ -46,11 +46,13 @@ class Model:
         self.total_resources = size * resources_per_node
 
 class Simulator:
-    def __init__(self, model: Model, seed: Optional[int] = None):
+    def __init__(self, model: Model, method: str, tax_rate: float = 0.0, seed: Optional[int] = None):
         self.model = model
+        self.method = method
+        self.tax_rate = tax_rate
+        self.total_tax_collected = 0
         if seed is not None:
             random.seed(seed)
-        
         # Initialize Fenwick Tree for preferential attachment
         self.fenwick_tree = FenwickTree(len(self.model.Nodes))
         for i, node in enumerate(self.model.Nodes):
@@ -100,10 +102,65 @@ class Simulator:
         """Get a list of resource counts for each node."""
         return [node.resources for node in self.model.Nodes]
     
-    def print_status(self):
-        """Print current status of all nodes."""
-        print(f"Total nodes: {len(self.model.Nodes)}")
-        print(f"Total resources: {self.model.total_resources}")
-        print("Node resources:")
+    def apply_tax(self, tax_rate: float):
+        """Apply a tax to the resources added to each node and redistribute the collected tax."""
+        if not (0 <= tax_rate <= 1):
+            raise ValueError("Tax rate must be between 0 and 1.")
+        if tax_rate == 0:
+            return
+
+        total_tax = 0
         for node in self.model.Nodes:
-            print(f"  Node {node.id}: {node.resources} resources ({node.resources_added} added)")
+            tax_amount = int(node.resources_added * tax_rate)
+            if tax_amount > 0:
+                self.add_resources_to_node(node.id, -tax_amount)
+                total_tax += tax_amount
+        self.total_tax_collected = total_tax
+
+        # Redistribute the collected tax evenly
+        if not self.model.Nodes:
+            return
+        resources_per_node = total_tax // len(self.model.Nodes)
+        remainder = total_tax % len(self.model.Nodes)        
+        for i in range(len(self.model.Nodes)):
+            amount = resources_per_node + (1 if i < remainder else 0)
+            self.add_resources_to_node(i, amount)
+
+    def run(self, add_resources: int, target_node: Optional[int] = None):
+        """Run the simulation."""
+        print(f"\nAdding {add_resources} additional resources using '{self.method}' method...")
+        
+        if self.method == 'random':
+            self.add_resources_randomly(add_resources)
+        elif self.method == 'preferential':
+            self.add_resources_preferentially(add_resources)
+        elif self.method == 'even':
+            self.add_resources_evenly(add_resources)
+        elif self.method == 'specific':
+            if target_node is None:
+                raise ValueError("Target node must be specified for 'specific' method.")
+            self.add_resources_to_node(target_node, add_resources)
+        else:
+            print(f"Unrecognized method {self.method}.")
+        
+        print(f"Final total resources: {self.model.total_resources}")
+
+        if self.tax_rate > 0:
+            self.apply_tax(self.tax_rate)
+
+    def show_status(self):
+        """Show the final status of the simulation."""
+        distribution = self.get_resource_distribution()
+        print(f"\nResource distribution summary:")
+        print(f"  Min resources: {min(distribution)}")
+        print(f"  Max resources: {max(distribution)}")
+        print(f"  Average resources: {sum(distribution) / len(distribution):.2f}")
+
+        if self.tax_rate > 0:
+            print(f"\nApplied income tax at a rate of {self.tax_rate}")
+            print(f"  Total tax collected: {self.total_tax_collected}")
+            distribution = self.get_resource_distribution()
+            print(f"\nResource distribution after tax:")
+            print(f"  Min resources: {min(distribution)}")
+            print(f"  Max resources: {max(distribution)}")
+            print(f"  Average resources: {sum(distribution) / len(distribution):.2f}")

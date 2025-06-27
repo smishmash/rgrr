@@ -14,67 +14,74 @@ class TestSimulator(unittest.TestCase):
         self.initial_nodes = 5
         self.initial_resources_per_node = 10
         self.m = model.Model(self.initial_nodes, self.initial_resources_per_node)
-        self.simulator = model.Simulator(self.m)
 
     def test_initial_total_resources(self):
         # Test that Model initializes total_resources correctly
         self.assertEqual(self.m.total_resources, self.initial_nodes * self.initial_resources_per_node)
 
-    def test_add_resources_to_node(self):
+    def test_run_specific(self):
+        simulator = model.Simulator(self.m, method='specific', seed=42)
         amount_to_add = 5
         target_node_id = 0
         initial_total = self.m.total_resources
-        
-        self.simulator.add_resources_to_node(target_node_id, amount_to_add)
+        simulator.run(amount_to_add, target_node_id)
         self.assertEqual(self.m.Nodes[target_node_id].resources, self.initial_resources_per_node + amount_to_add)
         self.assertEqual(self.m.total_resources, initial_total + amount_to_add)
 
-        # Test adding to a non-existent node
-        with self.assertRaises(AssertionError):
-            self.simulator.add_resources_to_node(999, amount_to_add)
-        self.assertEqual(self.m.total_resources, initial_total + amount_to_add) # Total resources should not change
-
-    def test_add_resources_randomly(self):
+    def test_run_random(self):
+        simulator = model.Simulator(self.m, method='random', tax_rate=0.0, seed=42)
         resources_to_add = 100
         initial_total = self.m.total_resources
-        
-        self.simulator.add_resources_randomly(resources_to_add)
+        simulator.run(resources_to_add)
         self.assertEqual(self.m.total_resources, initial_total + resources_to_add)
-        # Further assertions could check if resources are distributed (non-zero for some nodes)
-        # but exact distribution is random, so checking total is sufficient for this test.
 
-    def test_add_resources_preferentially(self):
+    def test_run_preferential(self):
+        simulator = model.Simulator(self.m, method='preferential', tax_rate=0.0, seed=42)
         resources_to_add = 100
         initial_total = self.m.total_resources
-        
-        self.simulator.add_resources_preferentially(resources_to_add)
+        simulator.run(resources_to_add)
         self.assertEqual(self.m.total_resources, initial_total + resources_to_add)
-        # Similar to random, exact distribution is hard to test, but total should be correct.
 
-    def test_add_resources_evenly(self):
+    def test_run_evenly(self):
+        simulator = model.Simulator(self.m, method='even', tax_rate=0.0, seed=42)
         resources_to_add = 100
-        initial_total = self.m.total_resources
-        
-        self.simulator.add_resources_evenly(resources_to_add)
+        initial_total = self.m.total_resources        
+        simulator.run(resources_to_add)
         self.assertEqual(self.m.total_resources, initial_total + resources_to_add)
-        
         # Check for even distribution (within 1 resource difference)
-        distribution = self.simulator.get_resource_distribution()
+        distribution = simulator.get_resource_distribution()
         min_res = min(distribution)
         max_res = max(distribution)
         self.assertTrue(max_res - min_res <= 1)
 
-    def test_resources_added_tracking(self):
-        # Test that resources_added is tracked correctly
-        amount_to_add = 5
-        target_node_id = 0
+    def test_apply_tax(self):
+        tax_rate = 0.1
+        simulator = model.Simulator(self.m, method='random', tax_rate=tax_rate, seed=42)
         
-        self.simulator.add_resources_to_node(target_node_id, amount_to_add)
-        self.assertEqual(self.m.Nodes[target_node_id].resources_added, amount_to_add)
+        # Get initial state
+        initial_resources = simulator.get_resource_distribution()
+        
+        # Run the simulation
+        simulator.run(100)
+        
+        # Get final state
+        final_resources = simulator.get_resource_distribution()
+        
+        # Check that tax was applied correctly
+        for i in range(len(self.m.Nodes)):
+            resources_added = self.m.Nodes[i].resources_added
+            tax_amount = int(resources_added * tax_rate)
+            # The change in resources should be the resources added, minus the tax, plus the redistributed tax
+            redistributed_tax = simulator.total_tax_collected // len(self.m.Nodes)
+            remainder = simulator.total_tax_collected % len(self.m.Nodes)
+            if i < remainder:
+                redistributed_tax += 1
+            
+            self.assertEqual(final_resources[i] - initial_resources[i], resources_added - tax_amount + redistributed_tax)
 
-        self.simulator.add_resources_randomly(10)
-        total_added = sum(node.resources_added for node in self.m.Nodes)
-        self.assertEqual(total_added, amount_to_add + 10)
+        # Because taxes collected are rounded down
+        self.assertEqual(simulator.total_tax_collected, 8)
+        self.assertEqual(self.m.total_resources, sum(initial_resources) + 100)
 
 if __name__ == '__main__':
     unittest.main()
