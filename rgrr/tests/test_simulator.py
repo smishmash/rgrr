@@ -6,7 +6,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 from rgrr.model import Model
-from rgrr.simulator import Simulator
+from rgrr.simulator import Simulator, MultiStepSimulator
 
 class TestSimulator(unittest.TestCase):
 
@@ -21,33 +21,33 @@ class TestSimulator(unittest.TestCase):
         self.assertEqual(self.m.total_resources, self.initial_nodes * self.initial_resources_per_node)
 
     def test_run_specific(self):
-        simulator = Simulator(self.m, method='specific', seed=42)
-        amount_to_add = 5
+        resources_to_add = 5
         target_node_id = 0
+        simulator = Simulator(self.m, 'specific', resources_to_add, target_node_id, seed=42)
         initial_total = self.m.total_resources
-        simulator.run(amount_to_add, target_node_id)
-        self.assertEqual(self.m.Nodes[target_node_id].resources, self.initial_resources_per_node + amount_to_add)
-        self.assertEqual(self.m.total_resources, initial_total + amount_to_add)
+        simulator.run()
+        self.assertEqual(self.m.Nodes[target_node_id].resources, self.initial_resources_per_node + resources_to_add)
+        self.assertEqual(self.m.total_resources, initial_total + resources_to_add)
 
     def test_run_random(self):
-        simulator = Simulator(self.m, method='random', tax_rate=0.0, seed=42)
         resources_to_add = 100
         initial_total = self.m.total_resources
-        simulator.run(resources_to_add)
+        simulator = Simulator(self.m, 'random', resources_to_add, tax_rate=0.0, seed=42)
+        simulator.run()
         self.assertEqual(self.m.total_resources, initial_total + resources_to_add)
 
     def test_run_preferential(self):
-        simulator = Simulator(self.m, method='preferential', tax_rate=0.0, seed=42)
         resources_to_add = 100
+        simulator = Simulator(self.m, 'preferential', resources_to_add, tax_rate=0.0, seed=42)
         initial_total = self.m.total_resources
-        simulator.run(resources_to_add)
+        simulator.run()
         self.assertEqual(self.m.total_resources, initial_total + resources_to_add)
 
     def test_run_evenly(self):
-        simulator = Simulator(self.m, method='even', tax_rate=0.0, seed=42)
         resources_to_add = 100
+        simulator = Simulator(self.m, 'even', resources_to_add, tax_rate=0.0, seed=42)
         initial_total = self.m.total_resources
-        simulator.run(resources_to_add)
+        simulator.run()
         self.assertEqual(self.m.total_resources, initial_total + resources_to_add)
         # Check for even distribution (within 1 resource difference)
         distribution = simulator.get_resource_distribution()
@@ -57,15 +57,10 @@ class TestSimulator(unittest.TestCase):
 
     def test_apply_tax(self):
         tax_rate = 0.1
-        simulator = Simulator(self.m, method='random', tax_rate=tax_rate, seed=42)
-
-        # Get initial state
+        resources_to_add = 100
+        simulator = Simulator(self.m, 'random', resources_to_add, tax_rate=tax_rate, seed=42)
         initial_resources = simulator.get_resource_distribution()
-
-        # Run the simulation
-        simulator.run(100)
-
-        # Get final state
+        simulator.run()
         final_resources = simulator.get_resource_distribution()
 
         # Check that tax was applied correctly
@@ -83,6 +78,24 @@ class TestSimulator(unittest.TestCase):
         # Because taxes collected are rounded down
         self.assertEqual(simulator.total_tax_collected, 8)
         self.assertEqual(self.m.total_resources, sum(initial_resources) + 100)
+
+class TestMultiStepSimulator(unittest.TestCase):
+    def setUp(self):
+        self.initial_nodes = 5
+        self.initial_resources_per_node = 10
+        self.m = Model(self.initial_nodes, self.initial_resources_per_node)
+
+    def test_run(self):
+        epochs = 3
+        resources_to_add = 20
+        simulator = Simulator(self.m, 'random', resources_to_add, seed=42)
+        multi_step_simulator = MultiStepSimulator(simulator, epochs)
+
+        initial_total_resources = self.m.total_resources
+        multi_step_simulator.run()
+
+        expected_total_resources = initial_total_resources + (epochs * resources_to_add)
+        self.assertEqual(self.m.total_resources, expected_total_resources)
 
 if __name__ == '__main__':
     unittest.main()

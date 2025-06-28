@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import pareto
 
-from .rgrr.model import Model
-from .rgrr.simulator import Simulator
+from rgrr.model import Model
+from rgrr.simulator import Simulator, MultiStepSimulator
 
 
 def main():
@@ -74,6 +74,13 @@ def main():
     )
 
     parser.add_argument(
+        '--epochs',
+        type=int,
+        default=1,
+        help='Number of epochs to run the simulation'
+    )
+
+    parser.add_argument(
         '--plot-histogram',
         action='store_true',
         help='Plot a histogram of resource counts after simulation'
@@ -86,20 +93,16 @@ def main():
     m = Model(args.nodes, args.resources)
 
     # Create simulator
-    simulator = Simulator(m, args.method, args.income_tax_rate, args.seed)
+    if args.add_resources == 0:
+        args.add_resources = m.total_resources
+    simulator = Simulator(m, args.method, args.add_resources, args.target_node, args.income_tax_rate, args.seed)
 
     print(f"Created model with {args.nodes} nodes, each starting with {args.resources} resources")
     print(f"Initial total resources: {m.total_resources}")
 
-    # Add additional resources if specified
-    if args.add_resources == 0:
-        args.add_resources = m.total_resources
-
-    # Run the simulation
-    simulator.run(args.add_resources, args.target_node)
-
-    # Show the final status
-    simulator.show_status()
+    # Create and run the multi-step simulation
+    multi_step_simulator = MultiStepSimulator(simulator, args.epochs)
+    multi_step_simulator.run()
 
     # Get the final distribution for plotting
     distribution = simulator.get_resource_distribution()
