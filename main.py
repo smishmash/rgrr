@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
 import argparse
-import rgrr.model as model
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import pareto
+
+from .rgrr.model import Model
+from .rgrr.simulator import Simulator
 
 
 def main():
@@ -81,14 +83,14 @@ def main():
     args = parser.parse_args()
 
     # Create the simulation model with initial resources
-    m = model.Model(args.nodes, args.resources)
-    
+    m = Model(args.nodes, args.resources)
+
     # Create simulator
-    simulator = model.Simulator(m, args.method, args.income_tax_rate, args.seed)
-    
+    simulator = Simulator(m, args.method, args.income_tax_rate, args.seed)
+
     print(f"Created model with {args.nodes} nodes, each starting with {args.resources} resources")
     print(f"Initial total resources: {m.total_resources}")
-    
+
     # Add additional resources if specified
     if args.add_resources == 0:
         args.add_resources = m.total_resources
@@ -118,7 +120,7 @@ def main():
         # Plot the theoretical Pareto distribution
         # Use the range of the histogram for the theoretical curve
         x = np.linspace(min(distribution), max(distribution), 100)
-        
+
         # Ensure x values are positive for Pareto distribution
         x_positive = x[x > 0]
         pareto_pdf = pareto.pdf(x_positive, b=estimated_alpha, loc=loc, scale=scale)
