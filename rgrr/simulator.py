@@ -1,6 +1,7 @@
 import random
 from typing import Optional
 import numpy as np
+
 from .model import Model
 
 class FenwickTree:
@@ -35,12 +36,24 @@ class FenwickTree:
             p >>= 1
         return i
 
+
 class Simulator:
-    def __init__(self, model: Model, method: str, tax_rate: float = 0.0, seed: Optional[int] = None):
+    """Runs a simulation of resource distribution among nodes."""
+    def __init__(self,
+                 model: Model,
+                 method: str,
+                 resources_added: int,
+                 target_node: Optional[int] = None,
+                 tax_rate: float = 0.0,
+                 seed: Optional[int] = None):
         self.model = model
         self.method = method
         self.tax_rate = tax_rate
         self.total_tax_collected = 0
+        self.resources_added = resources_added
+        self.target_node = target_node
+        if self.method == 'specific' and self.target_node is None:
+            raise ValueError("Target node must be specified for 'specific' method.")
         if seed is not None:
             random.seed(seed)
         # Initialize Fenwick Tree for preferential attachment
@@ -116,20 +129,18 @@ class Simulator:
             amount = resources_per_node + (1 if i < remainder else 0)
             self.add_resources_to_node(i, amount)
 
-    def run(self, add_resources: int, target_node: Optional[int] = None):
+    def run(self):
         """Run the simulation."""
-        print(f"\nAdding {add_resources} additional resources using '{self.method}' method...")
+        print(f"\nAdding {self.resources_added} additional resources using '{self.method}' method...")
 
         if self.method == 'random':
-            self.add_resources_randomly(add_resources)
+            self.add_resources_randomly(self.resources_added)
         elif self.method == 'preferential':
-            self.add_resources_preferentially(add_resources)
+            self.add_resources_preferentially(self.resources_added)
         elif self.method == 'even':
-            self.add_resources_evenly(add_resources)
+            self.add_resources_evenly(self.resources_added)
         elif self.method == 'specific':
-            if target_node is None:
-                raise ValueError("Target node must be specified for 'specific' method.")
-            self.add_resources_to_node(target_node, add_resources)
+            self.add_resources_to_node(self.target_node, self.resources_added)
         else:
             raise Exception(f"Unrecognized method {self.method}.")
         if self.tax_rate > 0:
@@ -153,3 +164,15 @@ class Simulator:
             print(f"  Min resources: {min(distribution)}")
             print(f"  Max resources: {max(distribution)}")
             print(f"  Average resources: {sum(distribution) / len(distribution):.2f}")
+
+class MultiStepSimulator:
+    def __init__(self, simulator: Simulator, epochs: int):
+        self.simulator = simulator
+        self.epochs = epochs
+
+    def run(self):
+        """Run the simulation for a specified number of epochs."""
+        for epoch in range(self.epochs):
+            print(f"--- Epoch {epoch + 1}/{self.epochs} ---")
+            self.simulator.run()
+            self.simulator.show_status()
