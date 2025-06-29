@@ -3,6 +3,7 @@ from typing import Optional
 import numpy as np
 
 from .model import Model
+from .plotting import plot_resources_histogram
 
 class FenwickTree:
     """A Fenwick Tree (or Binary Indexed Tree) for efficient prefix sum calculations."""
@@ -148,31 +149,46 @@ class Simulator:
         print(f"Final total resources: {self.model.total_resources}")
 
 
-    def show_status(self):
-        """Show the final status of the simulation."""
+    def get_status(self):
+        """Return the final status of the simulation as a dictionary."""
         distribution = self.get_resource_distribution()
-        print(f"\nResource distribution summary:")
-        print(f"  Min resources: {min(distribution)}")
-        print(f"  Max resources: {max(distribution)}")
-        print(f"  Average resources: {sum(distribution) / len(distribution):.2f}")
+        status = {
+            "min_resources": min(distribution),
+            "max_resources": max(distribution),
+            "average_resources": sum(distribution) / len(distribution)
+        }
 
         if self.tax_rate > 0:
-            print(f"\nApplied income tax at a rate of {self.tax_rate}")
-            print(f"  Total tax collected: {self.total_tax_collected}")
-            distribution = self.get_resource_distribution()
-            print(f"\nResource distribution after tax:")
-            print(f"  Min resources: {min(distribution)}")
-            print(f"  Max resources: {max(distribution)}")
-            print(f"  Average resources: {sum(distribution) / len(distribution):.2f}")
+            status["tax_rate"] = self.tax_rate
+            status["total_tax_collected"] = self.total_tax_collected
+            status["post_tax_min_resources"] = min(distribution)
+            status["post_tax_max_resources"] = max(distribution)
+            status["post_tax_average_resources"] = sum(distribution) / len(distribution)
+        return status
+
 
 class MultiStepSimulator:
     def __init__(self, simulator: Simulator, epochs: int):
         self.simulator = simulator
         self.epochs = epochs
 
-    def run(self):
+    def run(self, plot_histogram: bool = False):
         """Run the simulation for a specified number of epochs."""
         for epoch in range(self.epochs):
             print(f"--- Epoch {epoch + 1}/{self.epochs} ---")
             self.simulator.run()
-            self.simulator.show_status()
+            status = self.simulator.get_status()
+            print(f"\nResource distribution summary:")
+            print(f"  Min resources: {status['min_resources']}")
+            print(f"  Max resources: {status['max_resources']}")
+            print(f"  Average resources: {status['average_resources']:.2f}")
+
+            if self.simulator.tax_rate > 0:
+                print(f"\nApplied income tax at a rate of {status['tax_rate']}")
+                print(f"  Total tax collected: {status['total_tax_collected']}")
+                print(f"\nResource distribution after tax:")
+                print(f"  Min resources: {status['post_tax_min_resources']}")
+                print(f"  Max resources: {status['post_tax_max_resources']}")
+                print(f"  Average resources: {status['post_tax_average_resources']:.2f}")
+        if plot_histogram:
+            plot_resources_histogram(self.simulator.get_resource_distribution())

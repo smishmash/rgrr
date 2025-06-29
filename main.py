@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-import matplotlib.pyplot as plt
-import numpy as np
-from scipy.stats import pareto
 
 from rgrr.model import Model
 from rgrr.simulator import Simulator, MultiStepSimulator
@@ -12,7 +9,7 @@ from rgrr.simulator import Simulator, MultiStepSimulator
 def main():
     # Set up command line argument parser
     parser = argparse.ArgumentParser(
-        description='Simulate preferential attachment network growth and resource distribution',
+        description='Simulate preferential resource distribution',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
 
@@ -102,38 +99,7 @@ def main():
 
     # Create and run the multi-step simulation
     multi_step_simulator = MultiStepSimulator(simulator, args.epochs)
-    multi_step_simulator.run()
-
-    # Get the final distribution for plotting
-    distribution = simulator.get_resource_distribution()
-
-    # Plot histogram and theoretical Pareto distribution if requested
-    if args.plot_histogram:
-        # Create the histogram
-        counts, bins, _ = plt.hist(distribution, bins=20, density=True, alpha=0.7, edgecolor='black', label='Resource Distribution')
-
-        estimated_alpha = None
-        # Use distribution directly as it's always positive as per user feedback
-        # Fit the Pareto distribution. floc=0 fixes the location parameter at 0.
-        # The fit returns shape, loc, and scale. We are interested in the shape parameter.
-        shape, loc, scale = pareto.fit(distribution, floc=0)
-        estimated_alpha = shape
-        plt.title(f'Distribution of Resources per Node with Theoretical Pareto Distribution (alpha={estimated_alpha:.2f})')
-
-        # Plot the theoretical Pareto distribution
-        # Use the range of the histogram for the theoretical curve
-        x = np.linspace(min(distribution), max(distribution), 100)
-
-        # Ensure x values are positive for Pareto distribution
-        x_positive = x[x > 0]
-        pareto_pdf = pareto.pdf(x_positive, b=estimated_alpha, loc=loc, scale=scale)
-        plt.plot(x_positive, pareto_pdf, color='r', linestyle='--', label=f'Theoretical Pareto (alpha={estimated_alpha:.2f})')
-
-        plt.xlabel('Resources')
-        plt.ylabel('Probability Density')
-        plt.grid(axis='y', alpha=0.75)
-        plt.legend()
-        plt.show()
+    multi_step_simulator.run(args.plot_histogram)
 
 
 if __name__ == "__main__":
