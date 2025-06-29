@@ -190,5 +190,7 @@ class MultiStepSimulator:
                 print(f"  Min resources: {status['post_tax_min_resources']}")
                 print(f"  Max resources: {status['post_tax_max_resources']}")
                 print(f"  Average resources: {status['post_tax_average_resources']:.2f}")
+            if plot_histogram:
+                plot_resources_histogram(self.simulator.get_resource_distribution(), f"Epoch {epoch + 1} Distribution")
         if plot_histogram:
-            plot_resources_histogram(self.simulator.get_resource_distribution())
+            input("Waiting for <enter>... ")
