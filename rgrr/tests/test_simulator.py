@@ -5,8 +5,8 @@ import os
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
+import rgrr.simulator as sim
 from rgrr.model import Model
-from rgrr.simulator import Simulator, MultiStepSimulator
 
 class TestSimulator(unittest.TestCase):
 
@@ -20,36 +20,30 @@ class TestSimulator(unittest.TestCase):
         # Test that Model initializes total_resources correctly
         self.assertEqual(self.m.total_resources, self.initial_nodes * self.initial_resources_per_node)
 
-    def test_run_specific(self):
-        resources_to_add = 5
-        target_node_id = 0
-        simulator = Simulator(self.m, 'specific', resources_to_add, target_node_id, seed=42)
-        initial_total = self.m.total_resources
-        simulator.run()
-        self.assertEqual(self.m.Nodes[target_node_id].resources, self.initial_resources_per_node + resources_to_add)
-        self.assertEqual(self.m.total_resources, initial_total + resources_to_add)
-
     def test_run_random(self):
         resources_to_add = 100
         initial_total = self.m.total_resources
-        simulator = Simulator(self.m, 'random', resources_to_add, tax_rate=0.0, seed=42)
+        operations = [sim.ResourceDistributionOperation('random', resources_to_add)]
+        simulator = sim.Simulator(self.m, 42, operations)
         simulator.run()
         self.assertEqual(self.m.total_resources, initial_total + resources_to_add)
 
     def test_run_preferential(self):
         resources_to_add = 100
-        simulator = Simulator(self.m, 'preferential', resources_to_add, tax_rate=0.0, seed=42)
+        operations = [sim.ResourceDistributionOperation('preferential', resources_to_add)]
+        simulator = sim.Simulator(self.m, 42, operations)
         initial_total = self.m.total_resources
         simulator.run()
         self.assertEqual(self.m.total_resources, initial_total + resources_to_add)
 
-    def test_run_evenly(self):
+    def test_run_uniformly(self):
         resources_to_add = 100
-        simulator = Simulator(self.m, 'even', resources_to_add, tax_rate=0.0, seed=42)
+        operations = [sim.ResourceDistributionOperation('uniform', resources_to_add)]
+        simulator = sim.Simulator(self.m, 42, operations)
         initial_total = self.m.total_resources
         simulator.run()
         self.assertEqual(self.m.total_resources, initial_total + resources_to_add)
-        # Check for even distribution (within 1 resource difference)
+        # Check for uniform distribution (within 1 resource difference)
         distribution = simulator.get_resource_distribution()
         min_res = min(distribution)
         max_res = max(distribution)
@@ -58,22 +52,25 @@ class TestSimulator(unittest.TestCase):
     def test_apply_tax(self):
         tax_rate = 0.1
         resources_to_add = 100
-        simulator = Simulator(self.m, 'random', resources_to_add, tax_rate=tax_rate, seed=42)
+        operations = [
+            sim.ResourceDistributionOperation('random', resources_to_add),
+            sim.IncomeTaxCollectionOperation(tax_rate)
+        ]
+        simulator = sim.Simulator(self.m, 42, operations)
         initial_resources = simulator.get_resource_distribution()
         simulator.run()
         final_resources = simulator.get_resource_distribution()
+
+        redistributed_tax = simulator.total_tax_collected // len(self.m.Nodes)
+        remainder = simulator.total_tax_collected % len(self.m.Nodes)
 
         # Check that tax was applied correctly
         for i in range(len(self.m.Nodes)):
             resources_added = self.m.Nodes[i].resources_added
             tax_amount = int(resources_added * tax_rate)
             # The change in resources should be the resources added, minus the tax, plus the redistributed tax
-            redistributed_tax = simulator.total_tax_collected // len(self.m.Nodes)
-            remainder = simulator.total_tax_collected % len(self.m.Nodes)
-            if i < remainder:
-                redistributed_tax += 1
-
-            self.assertEqual(final_resources[i] - initial_resources[i], resources_added - tax_amount + redistributed_tax)
+            adjusted_redistribution = redistributed_tax + 1 if i < remainder else redistributed_tax
+            self.assertEqual(final_resources[i] - initial_resources[i], resources_added - tax_amount + adjusted_redistribution)
 
         # Because taxes collected are rounded down
         self.assertEqual(simulator.total_tax_collected, 8)
@@ -81,8 +78,10 @@ class TestSimulator(unittest.TestCase):
 
     def test_apply_required_expenditure(self):
         expenditure_per_node = 5
-        resources_to_add = 0 # No resources added for this test
-        simulator = Simulator(self.m, 'random', resources_to_add, required_expenditure=expenditure_per_node, seed=42)
+        operations = [
+            sim.RequiredExpenditureOperation(expenditure_per_node)
+        ]
+        simulator = sim.Simulator(self.m, 42, operations)
         initial_total_resources = self.m.total_resources
         initial_node_resources = [node.resources for node in self.m.Nodes]
 
@@ -111,8 +110,8 @@ class TestMultiStepSimulator(unittest.TestCase):
     def test_run(self):
         epochs = 3
         resources_to_add = 20
-        simulator = Simulator(self.m, 'random', resources_to_add, seed=42)
-        multi_step_simulator = MultiStepSimulator(simulator, epochs)
+        operations = [sim.ResourceDistributionOperation('random', resources_to_add)]
+        multi_step_simulator = sim.MultiStepSimulator(self.m, epochs, 42, operations)
 
         initial_total_resources = self.m.total_resources
         multi_step_simulator.run()
