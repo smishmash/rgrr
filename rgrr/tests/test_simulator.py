@@ -79,6 +79,29 @@ class TestSimulator(unittest.TestCase):
         self.assertEqual(simulator.total_tax_collected, 8)
         self.assertEqual(self.m.total_resources, sum(initial_resources) + 100)
 
+    def test_apply_required_expenditure(self):
+        expenditure_per_node = 5
+        resources_to_add = 0 # No resources added for this test
+        simulator = Simulator(self.m, 'random', resources_to_add, required_expenditure=expenditure_per_node, seed=42)
+        initial_total_resources = self.m.total_resources
+        initial_node_resources = [node.resources for node in self.m.Nodes]
+
+        simulator.run()
+
+        # Calculate expected total expenditure
+        expected_total_expenditure = 0
+        for res in initial_node_resources:
+            expected_total_expenditure += min(res, expenditure_per_node)
+
+        self.assertGreater(expected_total_expenditure, 0)
+        self.assertEqual(simulator.total_expenditure_incurred, expected_total_expenditure)
+        self.assertEqual(self.m.total_resources, initial_total_resources - expected_total_expenditure)
+
+        for i, node in enumerate(self.m.Nodes):
+            expected_resources = initial_node_resources[i] - min(initial_node_resources[i], expenditure_per_node)
+            self.assertEqual(node.resources, expected_resources)
+
+
 class TestMultiStepSimulator(unittest.TestCase):
     def setUp(self):
         self.initial_nodes = 5

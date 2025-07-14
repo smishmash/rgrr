@@ -71,6 +71,13 @@ def main():
     )
 
     parser.add_argument(
+        '--required-expenditure',
+        type=int,
+        default=0,
+        help='Required expenditure to apply at the end of the simulation'
+    )
+
+    parser.add_argument(
         '--epochs',
         type=int,
         default=1,
@@ -92,7 +99,7 @@ def main():
     # Create simulator
     if args.add_resources == 0:
         args.add_resources = m.total_resources
-    simulator = Simulator(m, args.method, args.add_resources, args.target_node, args.income_tax_rate, args.seed)
+    simulator = Simulator(m, args.method, args.add_resources, args.target_node, args.income_tax_rate, args.required_expenditure, args.seed)
 
     print(f"Created model with {args.nodes} nodes, each starting with {args.resources} resources")
     print(f"Initial total resources: {m.total_resources}")
