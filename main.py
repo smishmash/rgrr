@@ -4,6 +4,11 @@ import argparse
 
 from rgrr.model import Model
 import rgrr.simulator as sim
+from rgrr.operations import (
+    ResourceDistributionOperation,
+    IncomeTaxCollectionOperation,
+    RequiredExpenditureOperation
+)
 
 def main():
     # Set up command line argument parser
@@ -99,15 +104,15 @@ def main():
 
     operations = []
     if args.random_method:
-        operations.append(sim.ResourceDistributionOperation('random', args.random_method))
+        operations.append(ResourceDistributionOperation('random', args.random_method))
     if args.preferential_method:
-        operations.append(sim.ResourceDistributionOperation('preferential', args.preferential_method))
+        operations.append(ResourceDistributionOperation('preferential', args.preferential_method))
     if args.uniform_method:
-        operations.append(sim.ResourceDistributionOperation('uniform', args.uniform_method))
+        operations.append(ResourceDistributionOperation('uniform', args.uniform_method))
     if args.income_tax_rate:
-        operations.append(sim.IncomeTaxCollectionOperation(args.income_tax_rate))
+        operations.append(IncomeTaxCollectionOperation(args.income_tax_rate))
     if args.required_expenditure:
-        operations.append(sim.RequiredExpenditureOperation(args.required_expenditure))
+        operations.append(RequiredExpenditureOperation(args.required_expenditure))
 
     print(f"Created model with {args.nodes} nodes, each starting with {args.resources} resources")
     print(f"Initial total resources: {m.total_resources}")
