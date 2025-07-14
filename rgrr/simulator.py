@@ -46,11 +46,14 @@ class Simulator:
                  resources_added: int,
                  target_node: Optional[int] = None,
                  tax_rate: float = 0.0,
+                 required_expenditure: int = 0,
                  seed: Optional[int] = None):
         self.model = model
         self.method = method
         self.tax_rate = tax_rate
+        self.required_expenditure = required_expenditure
         self.total_tax_collected = 0
+        self.total_expenditure_incurred = 0
         self.resources_added = resources_added
         self.target_node = target_node
         if self.method == 'specific' and self.target_node is None:
@@ -130,6 +133,18 @@ class Simulator:
             amount = resources_per_node + (1 if i < remainder else 0)
             self.add_resources_to_node(i, amount)
 
+    def apply_required_expenditure(self, expenditure: int):
+        """Apply a required expenditure, reducing resources from each node."""
+        if expenditure == 0:
+            return
+
+        total_expenditure_incurred = 0
+        for node in self.model.Nodes:
+            amount_to_deduct = min(node.resources, expenditure) # Deduct up to 'expenditure' or node's current resources
+            self.add_resources_to_node(node.id, -amount_to_deduct)
+            total_expenditure_incurred += amount_to_deduct
+        self.total_expenditure_incurred = total_expenditure_incurred
+
     def run(self):
         """Run the simulation."""
         print(f"\nAdding {self.resources_added} additional resources using '{self.method}' method...")
@@ -146,6 +161,8 @@ class Simulator:
             raise Exception(f"Unrecognized method {self.method}.")
         if self.tax_rate > 0:
             self.apply_tax(self.tax_rate)
+        if self.required_expenditure > 0:
+            self.apply_required_expenditure(self.required_expenditure)
         print(f"Final total resources: {self.model.total_resources}")
 
 
@@ -164,6 +181,9 @@ class Simulator:
             status["post_tax_min_resources"] = min(distribution)
             status["post_tax_max_resources"] = max(distribution)
             status["post_tax_average_resources"] = sum(distribution) / len(distribution)
+        if self.required_expenditure > 0:
+            status["required_expenditure"] = self.required_expenditure
+            status["total_expenditure_incurred"] = self.total_expenditure_incurred
         return status
 
 
@@ -190,6 +210,9 @@ class MultiStepSimulator:
                 print(f"  Min resources: {status['post_tax_min_resources']}")
                 print(f"  Max resources: {status['post_tax_max_resources']}")
                 print(f"  Average resources: {status['post_tax_average_resources']:.2f}")
+            if self.simulator.required_expenditure > 0:
+                print(f"\nApplied required expenditure of {status['required_expenditure']}")
+                print(f"  Total expenditure incurred: {status['total_expenditure_incurred']}")
             if plot_histogram:
                 plot_resources_histogram(self.simulator.get_resource_distribution(), f"Epoch {epoch + 1} Distribution")
         if plot_histogram:
