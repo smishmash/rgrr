@@ -1,11 +1,13 @@
 import random
-from typing import Optional
 import numpy as np
+from abc import ABC, abstractmethod
+from typing import Optional
 
-from .model import Model
-from .plotting import plot_resources_histogram
+from rgrr.model import Model
+from rgrr.plotting import plot_resources_histogram
 
 class FenwickTree:
+
     """A Fenwick Tree (or Binary Indexed Tree) for efficient prefix sum calculations."""
     def __init__(self, size: int):
         self.tree = np.zeros(size + 1, dtype=np.int64)
@@ -38,26 +40,61 @@ class FenwickTree:
         return i
 
 
+
+class SimulatorOperation(ABC):
+    """Abstract base class for all simulator operations."""
+
+    @abstractmethod
+    def execute(self, simulator: 'Simulator'):
+        pass
+
+class ResourceDistributionOperation(SimulatorOperation):
+    """Distributes resources based on a specified method."""
+
+    def __init__(self, method: str, resources_added: int):
+        self.method = method
+        self.resources_added = resources_added
+
+    def execute(self, simulator: 'Simulator'):
+        print(f"\nAdding {self.resources_added} additional resources using '{self.method}' method...")
+        if self.method == 'random':
+            simulator.add_resources_randomly(self.resources_added)
+        elif self.method == 'preferential':
+            simulator.add_resources_preferentially(self.resources_added)
+        elif self.method == 'uniform':
+            simulator.add_resources_uniformly(self.resources_added)
+        else:
+            raise Exception(f"Unrecognized method {self.method}.")
+
+class IncomeTaxCollectionOperation(SimulatorOperation):
+    """Applies tax to resources added and collects it."""
+
+    def __init__(self, tax_rate: float):
+        self.tax_rate = tax_rate
+
+    def execute(self, simulator: 'Simulator'):
+        simulator.apply_tax(self.tax_rate)
+
+class RequiredExpenditureOperation(SimulatorOperation):
+    """Applies a required expenditure, reducing resources from each node."""
+
+    def __init__(self, expenditure: int):
+        self.expenditure = expenditure
+
+    def execute(self, simulator: 'Simulator'):
+        simulator.apply_required_expenditure(self.expenditure)
+
 class Simulator:
     """Runs a simulation of resource distribution among nodes."""
+
     def __init__(self,
                  model: Model,
-                 method: str,
-                 resources_added: int,
-                 target_node: Optional[int] = None,
-                 tax_rate: float = 0.0,
-                 required_expenditure: int = 0,
-                 seed: Optional[int] = None):
+                 seed: Optional[int],
+                 operations: list[SimulatorOperation]):
         self.model = model
-        self.method = method
-        self.tax_rate = tax_rate
-        self.required_expenditure = required_expenditure
+        self.operations = operations
         self.total_tax_collected = 0
         self.total_expenditure_incurred = 0
-        self.resources_added = resources_added
-        self.target_node = target_node
-        if self.method == 'specific' and self.target_node is None:
-            raise ValueError("Target node must be specified for 'specific' method.")
         if seed is not None:
             random.seed(seed)
         # Initialize Fenwick Tree for preferential attachment
@@ -95,8 +132,8 @@ class Simulator:
             # Add resource to the selected node
             self.add_resources_to_node(node_id, 1)
 
-    def add_resources_evenly(self, total_resources: int):
-        """Distribute resources evenly among all nodes."""
+    def add_resources_uniformly(self, total_resources: int):
+        """Distribute resources uniformly among all nodes."""
         if not self.model.Nodes:
             return
         resources_per_node = total_resources // len(self.model.Nodes)
@@ -124,7 +161,7 @@ class Simulator:
                 total_tax += tax_amount
         self.total_tax_collected = total_tax
 
-        # Redistribute the collected tax evenly
+        # Redistribute the collected tax uniformly
         if not self.model.Nodes:
             return
         resources_per_node = total_tax // len(self.model.Nodes)
@@ -147,22 +184,12 @@ class Simulator:
 
     def run(self):
         """Run the simulation."""
-        print(f"\nAdding {self.resources_added} additional resources using '{self.method}' method...")
+        # Reset resources_added for all nodes at the beginning of each run
+        for node in self.model.Nodes:
+            node.resources_added = 0
 
-        if self.method == 'random':
-            self.add_resources_randomly(self.resources_added)
-        elif self.method == 'preferential':
-            self.add_resources_preferentially(self.resources_added)
-        elif self.method == 'even':
-            self.add_resources_evenly(self.resources_added)
-        elif self.method == 'specific':
-            self.add_resources_to_node(self.target_node, self.resources_added)
-        else:
-            raise Exception(f"Unrecognized method {self.method}.")
-        if self.tax_rate > 0:
-            self.apply_tax(self.tax_rate)
-        if self.required_expenditure > 0:
-            self.apply_required_expenditure(self.required_expenditure)
+        for operation in self.operations:
+            operation.execute(self)
         print(f"Final total resources: {self.model.total_resources}")
 
 
@@ -175,45 +202,44 @@ class Simulator:
             "average_resources": sum(distribution) / len(distribution)
         }
 
-        if self.tax_rate > 0:
-            status["tax_rate"] = self.tax_rate
+        if self.total_tax_collected > 0:
             status["total_tax_collected"] = self.total_tax_collected
             status["post_tax_min_resources"] = min(distribution)
             status["post_tax_max_resources"] = max(distribution)
             status["post_tax_average_resources"] = sum(distribution) / len(distribution)
-        if self.required_expenditure > 0:
-            status["required_expenditure"] = self.required_expenditure
+        if self.total_expenditure_incurred > 0:
             status["total_expenditure_incurred"] = self.total_expenditure_incurred
         return status
 
 
 class MultiStepSimulator:
-    def __init__(self, simulator: Simulator, epochs: int):
-        self.simulator = simulator
+    def __init__(self, model: Model, epochs: int, seed: Optional[int], operations: list[SimulatorOperation]):
+        self.model = model
         self.epochs = epochs
+        self.operations = operations
+        self.seed = seed
 
     def run(self, plot_histogram: bool = False):
         """Run the simulation for a specified number of epochs."""
         for epoch in range(self.epochs):
             print(f"--- Epoch {epoch + 1}/{self.epochs} ---")
-            self.simulator.run()
-            status = self.simulator.get_status()
+            simulator = Simulator(self.model, self.seed, self.operations)
+            simulator.run()
+            status = simulator.get_status()
             print(f"\nResource distribution summary:")
             print(f"  Min resources: {status['min_resources']}")
             print(f"  Max resources: {status['max_resources']}")
             print(f"  Average resources: {status['average_resources']:.2f}")
 
-            if self.simulator.tax_rate > 0:
-                print(f"\nApplied income tax at a rate of {status['tax_rate']}")
-                print(f"  Total tax collected: {status['total_tax_collected']}")
+            if "total_tax_collected" in status:
+                print(f"\nTotal tax collected: {status['total_tax_collected']}")
                 print(f"\nResource distribution after tax:")
                 print(f"  Min resources: {status['post_tax_min_resources']}")
                 print(f"  Max resources: {status['post_tax_max_resources']}")
                 print(f"  Average resources: {status['post_tax_average_resources']:.2f}")
-            if self.simulator.required_expenditure > 0:
-                print(f"\nApplied required expenditure of {status['required_expenditure']}")
-                print(f"  Total expenditure incurred: {status['total_expenditure_incurred']}")
+            if "total_expenditure_incurred" in status:
+                print(f"\nTotal expenditure incurred: {status['total_expenditure_incurred']}")
             if plot_histogram:
-                plot_resources_histogram(self.simulator.get_resource_distribution(), f"Epoch {epoch + 1} Distribution")
+                plot_resources_histogram(simulator.get_resource_distribution(), f"Epoch {epoch + 1} Distribution")
         if plot_histogram:
             input("Waiting for <enter>... ")
