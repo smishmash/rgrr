@@ -1,10 +1,10 @@
-import random
 import numpy as np
+import random
 from typing import Optional, Sequence
 
 from rgrr.model import Model
 from rgrr.plotting import plot_resources_histogram
-from rgrr.operations import SimulatorOperation
+from rgrr.operations import SimulatorOperation, ResourceDistributionOperation
 
 class FenwickTree:
 
@@ -103,19 +103,29 @@ class Simulator:
 
 
 class MultiStepSimulator:
-    def __init__(self, model: Model, epochs: int, seed: Optional[int], operations: Sequence[SimulatorOperation]):
+    def __init__(self, model: Model, epochs: int, seed: Optional[int], operations: Sequence[SimulatorOperation], expenditure_distribution_method: str = 'uniform'):
         self.model = model
         self.epochs = epochs
         self.operations = operations
         self.seed = seed
+        self.expenditure_distribution_method = expenditure_distribution_method
 
     def run(self, plot_histogram: bool = False):
         """Run the simulation for a specified number of epochs."""
+        last_expenditure = 0
         for epoch in range(self.epochs):
             print(f"--- Epoch {epoch + 1}/{self.epochs} ---")
-            simulator = Simulator(self.model, self.seed, self.operations)
+
+            current_operations = list(self.operations)
+            if last_expenditure > 0:
+                current_operations.insert(0, ResourceDistributionOperation(self.expenditure_distribution_method, last_expenditure))
+
+            simulator = Simulator(self.model, self.seed, current_operations)
             simulator.run()
             status = simulator.get_status()
+
+            last_expenditure = status.get("total_expenditure_incurred", 0)
+
             print(f"\nResource distribution summary:")
             print(f"  Min resources: {status['min_resources']}")
             print(f"  Max resources: {status['max_resources']}")

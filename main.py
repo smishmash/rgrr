@@ -117,8 +117,18 @@ def main():
     print(f"Created model with {args.nodes} nodes, each starting with {args.resources} resources")
     print(f"Initial total resources: {m.total_resources}")
 
+    # Determine the expenditure distribution method
+    expenditure_distribution_method = 'uniform' # Default
+    if args.random_method > 0:
+        expenditure_distribution_method = 'random'
+    elif args.preferential_method > 0:
+        expenditure_distribution_method = 'preferential'
+    elif args.uniform_method > 0:
+        expenditure_distribution_method = 'uniform'
+
+
     # Create and run the multi-step simulation
-    multi_step_simulator = sim.MultiStepSimulator(m, args.epochs, args.seed, operations)
+    multi_step_simulator = sim.MultiStepSimulator(m, args.epochs, args.seed, operations, expenditure_distribution_method)
     multi_step_simulator.run(args.plot_histogram)
 
 
