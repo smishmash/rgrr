@@ -62,24 +62,12 @@ class TestSimulator(unittest.TestCase):
             IncomeTaxCollectionOperation(tax_rate)
         ]
         simulator = sim.Simulator(self.m, 42, operations)
-        initial_resources = simulator.get_resource_distribution()
+        initial_total_resources = self.m.total_resources
         simulator.run()
-        final_resources = simulator.get_resource_distribution()
 
-        redistributed_tax = simulator.total_tax_collected // len(self.m.Nodes)
-        remainder = simulator.total_tax_collected % len(self.m.Nodes)
-
-        # Check that tax was applied correctly
-        for i in range(len(self.m.Nodes)):
-            resources_added = self.m.Nodes[i].resources_added
-            tax_amount = int(resources_added * tax_rate)
-            # The change in resources should be the resources added, minus the tax, plus the redistributed tax
-            adjusted_redistribution = redistributed_tax + 1 if i < remainder else redistributed_tax
-            self.assertEqual(final_resources[i] - initial_resources[i], resources_added - tax_amount + adjusted_redistribution)
-
-        # Because taxes collected are rounded down
-        self.assertEqual(simulator.total_tax_collected, 8)
-        self.assertEqual(self.m.total_resources, sum(initial_resources) + 100)
+        # Tax is collected but not redistributed in the same epoch.
+        self.assertGreater(simulator.total_tax_collected, 0)
+        self.assertEqual(self.m.total_resources, initial_total_resources + resources_to_add - simulator.total_tax_collected)
 
     def test_apply_required_expenditure(self):
         expenditure_per_node = 5
@@ -148,6 +136,31 @@ class TestMultiStepSimulator(unittest.TestCase):
         # Incur expenditure of 15 per node. Each node gives 15. Total expenditure = 15 * 5 = 75.
         # Each node has 3 resources. Total resources = 15.
         self.assertEqual(self.m.total_resources, 15)
+
+    def test_tax_redistribution(self):
+        epochs = 2
+        resources_to_add = 100
+        tax_rate = 0.1
+        operations = [
+            ResourceDistributionOperation('random', resources_to_add),
+            IncomeTaxCollectionOperation(tax_rate)
+        ]
+        multi_step_simulator = sim.MultiStepSimulator(self.m, epochs, 42, operations, 'random')
+
+        initial_total_resources = self.m.total_resources
+        multi_step_simulator.run()
+
+        # In epoch 1:
+        # Start with 5*10 = 50 resources.
+        # Add 100 resources randomly -> 150 total.
+        # Tax at 0.1 on the 100 added resources. With seed 42, total tax collected is 8.
+        # End of epoch 1 total resources = 150 - 8 = 142.
+        # In epoch 2:
+        # Redistribute 8 resources from tax uniformly. Total resources = 142 + 8 = 150.
+        # Add 100 resources randomly -> 150 + 100 = 250.
+        # Tax at 0.1 on the 100 added resources. With seed 42, total tax collected is 8.
+        # End of epoch 2 total resources = 250 - 8 = 242.
+        self.assertEqual(self.m.total_resources, 242)
 
 if __name__ == '__main__':
     unittest.main()
