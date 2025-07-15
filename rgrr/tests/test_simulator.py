@@ -116,13 +116,38 @@ class TestMultiStepSimulator(unittest.TestCase):
         epochs = 3
         resources_to_add = 20
         operations = [ResourceDistributionOperation('random', resources_to_add)]
-        multi_step_simulator = sim.MultiStepSimulator(self.m, epochs, 42, operations)
+        multi_step_simulator = sim.MultiStepSimulator(self.m, epochs, 42, operations, 'random')
 
         initial_total_resources = self.m.total_resources
         multi_step_simulator.run()
 
         expected_total_resources = initial_total_resources + (epochs * resources_to_add)
         self.assertEqual(self.m.total_resources, expected_total_resources)
+
+    def test_expenditure_redistribution(self):
+        epochs = 2
+        resources_to_add = 20
+        expenditure_per_node = 15
+        operations = [
+            ResourceDistributionOperation('uniform', resources_to_add),
+            RequiredExpenditureOperation(expenditure_per_node)
+        ]
+        multi_step_simulator = sim.MultiStepSimulator(self.m, epochs, 42, operations, 'uniform')
+
+        initial_total_resources = self.m.total_resources
+        multi_step_simulator.run()
+
+        # In epoch 1:
+        # Start with 5*10 = 50 resources.
+        # Add 20 resources uniformly -> 50 + 20 = 70 total. Each node has 14.
+        # Incur expenditure of 15 per node. Each node has 14, so each gives 14. Total expenditure = 14 * 5 = 70.
+        # Each node has 0 resources.
+        # In epoch 2:
+        # Redistribute 70 resources from expenditure uniformly. Each node gets 14.
+        # Add 20 resources uniformly -> 70 + 20 = 90 total. Each node gets 4 more, so 18 each.
+        # Incur expenditure of 15 per node. Each node gives 15. Total expenditure = 15 * 5 = 75.
+        # Each node has 3 resources. Total resources = 15.
+        self.assertEqual(self.m.total_resources, 15)
 
 if __name__ == '__main__':
     unittest.main()
