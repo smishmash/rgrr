@@ -113,18 +113,24 @@ class MultiStepSimulator:
     def run(self, plot_histogram: bool = False):
         """Run the simulation for a specified number of epochs."""
         last_expenditure = 0
+        last_tax_collected = 0
         for epoch in range(self.epochs):
             print(f"--- Epoch {epoch + 1}/{self.epochs} ---")
 
             current_operations = list(self.operations)
             if last_expenditure > 0:
                 current_operations.insert(0, ResourceDistributionOperation(self.expenditure_distribution_method, last_expenditure))
+            if last_tax_collected > 0:
+                current_operations.insert(0, ResourceDistributionOperation('uniform', last_tax_collected))
 
             simulator = Simulator(self.model, self.seed, current_operations)
+            # Reset tax collected for the new epoch, as it's now handled between epochs
+            simulator.total_tax_collected = 0
             simulator.run()
             status = simulator.get_status()
 
             last_expenditure = status.get("total_expenditure_incurred", 0)
+            last_tax_collected = status.get("total_tax_collected", 0)
 
             print(f"\nResource distribution summary:")
             print(f"  Min resources: {status['min_resources']}")

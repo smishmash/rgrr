@@ -73,7 +73,7 @@ class IncomeTaxCollectionOperation(SimulatorOperation):
         self.tax_rate = tax_rate
 
     def execute(self, simulator: Simulator):
-        """Apply a tax to the resources added to each node and redistribute the collected tax."""
+        """Apply a tax to the resources added to each node and collect it."""
         if not (0 <= self.tax_rate <= 1):
             raise ValueError("Tax rate must be between 0 and 1.")
         if self.tax_rate == 0:
@@ -85,16 +85,7 @@ class IncomeTaxCollectionOperation(SimulatorOperation):
             if tax_amount > 0:
                 simulator.add_resources_to_node(node.id, -tax_amount)
                 total_tax += tax_amount
-        simulator.total_tax_collected = total_tax
-
-        # Redistribute the collected tax uniformly
-        if not simulator.model.Nodes:
-            return
-        resources_per_node = total_tax // len(simulator.model.Nodes)
-        remainder = total_tax % len(simulator.model.Nodes)
-        for i in range(len(simulator.model.Nodes)):
-            amount = resources_per_node + (1 if i < remainder else 0)
-            simulator.add_resources_to_node(i, amount)
+        simulator.total_tax_collected += total_tax
 
 class RequiredExpenditureOperation(SimulatorOperation):
     """Applies a required expenditure, reducing resources from each node."""
