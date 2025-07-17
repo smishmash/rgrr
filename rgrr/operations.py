@@ -13,29 +13,65 @@ class SimulatorOperation(ABC):
     def execute(self, simulator: Simulator):
         pass
 
-class ResourceDistributionOperation(SimulatorOperation):
-    """Distributes resources based on a specified method."""
+class ResourceDistributionOperation(SimulatorOperation, ABC):
+    """Abstract base class for resource distribution operations."""
 
-    def __init__(self, method: str, resources_added: int, target_node: Optional[int] = None):
-        self.method = method
+    def __init__(self, resources_added: int):
         self.resources_added = resources_added
-        self.target_node = target_node
-        if self.method == 'specific' and self.target_node is None:
-            raise ValueError("Target node must be specified for 'specific' method.")
 
-    def _add_resources_randomly(self, simulator: Simulator, total_resources: int):
-        """Distribute resources randomly among all nodes."""
+    @staticmethod
+    def create(method: str, resources_added: int) -> 'ResourceDistributionOperation':
+        if method == 'random':
+            return RandomResourceDistribution(resources_added)
+        elif method == 'preferential':
+            return PreferentialResourceDistribution(resources_added)
+        elif method == 'uniform':
+            return UniformResourceDistribution(resources_added)
+        else:
+            raise ValueError(f"Unrecognized distribution method: {method}")
+
+    @property
+    @abstractmethod
+    def method(self) -> str:
+        """The method of resource distribution."""
+        pass
+
+    def execute(self, simulator: Simulator):
+        print(f"\nAdding {self.resources_added} additional resources using '{self.method}' method...")
+        self._distribute(simulator, self.resources_added)
+
+    @abstractmethod
+    def _distribute(self, simulator: Simulator, total_resources: int):
+        pass
+
+
+class RandomResourceDistribution(ResourceDistributionOperation):
+    """Distributes resources randomly among all nodes."""
+
+    @property
+    def method(self) -> str:
+        return 'random'
+
+    def _distribute(self, simulator: Simulator, total_resources: int):
         for _ in range(total_resources):
             random_node_id = random.randint(0, len(simulator.model.Nodes) - 1)
             simulator.add_resources_to_node(random_node_id, 1)
 
-    def _add_resources_preferentially(self, simulator: Simulator, total_resources: int):
-        """Add resources preferentially based on current resource count (rich get richer)."""
+
+class PreferentialResourceDistribution(ResourceDistributionOperation):
+    """Adds resources preferentially based on current resource count (rich get richer)."""
+
+    @property
+    def method(self) -> str:
+        return 'preferential'
+
+    def _distribute(self, simulator: Simulator, total_resources: int):
         for _ in range(total_resources):
             total_weight = simulator.model.total_resources
             if total_weight == 0:
                 # If there are no resources, distribute randomly
-                self._add_resources_randomly(simulator, 1)
+                random_node_id = random.randint(0, len(simulator.model.Nodes) - 1)
+                simulator.add_resources_to_node(random_node_id, 1)
                 continue
 
             # Select node based on weighted probability using Fenwick Tree
@@ -45,8 +81,15 @@ class ResourceDistributionOperation(SimulatorOperation):
             # Add resource to the selected node
             simulator.add_resources_to_node(node_id, 1)
 
-    def _add_resources_uniformly(self, simulator: Simulator, total_resources: int):
-        """Distribute resources uniformly among all nodes."""
+
+class UniformResourceDistribution(ResourceDistributionOperation):
+    """Distributes resources uniformly among all nodes."""
+
+    @property
+    def method(self) -> str:
+        return 'uniform'
+
+    def _distribute(self, simulator: Simulator, total_resources: int):
         if not simulator.model.Nodes:
             return
         resources_per_node = total_resources // len(simulator.model.Nodes)
@@ -54,17 +97,6 @@ class ResourceDistributionOperation(SimulatorOperation):
         for i in range(len(simulator.model.Nodes)):
             amount = resources_per_node + (1 if i < remainder else 0)
             simulator.add_resources_to_node(i, amount)
-
-    def execute(self, simulator: Simulator):
-        print(f"\nAdding {self.resources_added} additional resources using '{self.method}' method...")
-        if self.method == 'random':
-            self._add_resources_randomly(simulator, self.resources_added)
-        elif self.method == 'preferential':
-            self._add_resources_preferentially(simulator, self.resources_added)
-        elif self.method == 'uniform':
-            self._add_resources_uniformly(simulator, self.resources_added)
-        else:
-            raise Exception(f"Unrecognized method {self.method}.")
 
 class IncomeTaxCollectionOperation(SimulatorOperation):
     """Applies tax to resources added and collects it."""

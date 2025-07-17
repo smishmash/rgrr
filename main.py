@@ -104,11 +104,11 @@ def main():
 
     operations = []
     if args.random_method:
-        operations.append(ResourceDistributionOperation('random', args.random_method))
+        operations.append(ResourceDistributionOperation.create('random', args.random_method))
     if args.preferential_method:
-        operations.append(ResourceDistributionOperation('preferential', args.preferential_method))
+        operations.append(ResourceDistributionOperation.create('preferential', args.preferential_method))
     if args.uniform_method:
-        operations.append(ResourceDistributionOperation('uniform', args.uniform_method))
+        operations.append(ResourceDistributionOperation.create('uniform', args.uniform_method))
     if args.income_tax_rate:
         operations.append(IncomeTaxCollectionOperation(args.income_tax_rate))
     if args.required_expenditure:
