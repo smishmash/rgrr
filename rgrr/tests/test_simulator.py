@@ -28,14 +28,14 @@ class TestSimulator(unittest.TestCase):
     def test_run_random(self):
         resources_to_add = 100
         initial_total = self.m.total_resources
-        operations = [ResourceDistributionOperation('random', resources_to_add)]
+        operations = [ResourceDistributionOperation.create('random', resources_to_add)]
         simulator = sim.Simulator(self.m, 42, operations)
         simulator.run()
         self.assertEqual(self.m.total_resources, initial_total + resources_to_add)
 
     def test_run_preferential(self):
         resources_to_add = 100
-        operations = [ResourceDistributionOperation('preferential', resources_to_add)]
+        operations = [ResourceDistributionOperation.create('preferential', resources_to_add)]
         simulator = sim.Simulator(self.m, 42, operations)
         initial_total = self.m.total_resources
         simulator.run()
@@ -43,7 +43,7 @@ class TestSimulator(unittest.TestCase):
 
     def test_run_uniformly(self):
         resources_to_add = 100
-        operations = [ResourceDistributionOperation('uniform', resources_to_add)]
+        operations = [ResourceDistributionOperation.create('uniform', resources_to_add)]
         simulator = sim.Simulator(self.m, 42, operations)
         initial_total = self.m.total_resources
         simulator.run()
@@ -58,7 +58,7 @@ class TestSimulator(unittest.TestCase):
         tax_rate = 0.1
         resources_to_add = 100
         operations = [
-            ResourceDistributionOperation('random', resources_to_add),
+            ResourceDistributionOperation.create('random', resources_to_add),
             IncomeTaxCollectionOperation(tax_rate)
         ]
         simulator = sim.Simulator(self.m, 42, operations)
@@ -103,7 +103,7 @@ class TestMultiStepSimulator(unittest.TestCase):
     def test_run(self):
         epochs = 3
         resources_to_add = 20
-        operations = [ResourceDistributionOperation('random', resources_to_add)]
+        operations = [ResourceDistributionOperation.create('random', resources_to_add)]
         multi_step_simulator = sim.MultiStepSimulator(self.m, epochs, 42, operations, 'random')
 
         initial_total_resources = self.m.total_resources
@@ -117,7 +117,7 @@ class TestMultiStepSimulator(unittest.TestCase):
         resources_to_add = 20
         expenditure_per_node = 15
         operations = [
-            ResourceDistributionOperation('uniform', resources_to_add),
+            ResourceDistributionOperation.create('uniform', resources_to_add),
             RequiredExpenditureOperation(expenditure_per_node)
         ]
         multi_step_simulator = sim.MultiStepSimulator(self.m, epochs, 42, operations, 'uniform')
@@ -142,7 +142,7 @@ class TestMultiStepSimulator(unittest.TestCase):
         resources_to_add = 100
         tax_rate = 0.1
         operations = [
-            ResourceDistributionOperation('random', resources_to_add),
+            ResourceDistributionOperation.create('random', resources_to_add),
             IncomeTaxCollectionOperation(tax_rate)
         ]
         multi_step_simulator = sim.MultiStepSimulator(self.m, epochs, 42, operations, 'random')
