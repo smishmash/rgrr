@@ -1,5 +1,9 @@
 import numpy as np
 
+# This class is only used in preferential distribution operation.
+# It might be better to restrict its use to that one class, but
+# it isn't clear if that's the right approach.
+
 class FenwickTree:
     """A Fenwick Tree (or Binary Indexed Tree) for efficient prefix sum calculations."""
     def __init__(self, size: int):
