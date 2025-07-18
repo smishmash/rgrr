@@ -1,5 +1,6 @@
 from __future__ import annotations
 import random
+import logging
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Optional
 
@@ -37,7 +38,7 @@ class ResourceDistributionOperation(SimulatorOperation, ABC):
         pass
 
     def execute(self, simulator: Simulator):
-        print(f"\nAdding {self.resources_added} additional resources using '{self.method}' method...")
+        logging.debug(f"\nAdding {self.resources_added} additional resources using '{self.method}' method...")
         self._distribute(simulator, self.resources_added)
 
     @abstractmethod

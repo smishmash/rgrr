@@ -1,4 +1,5 @@
 import random
+import logging
 from typing import Optional, Sequence
 
 from rgrr.fenwick_tree import FenwickTree
@@ -45,7 +46,7 @@ class Simulator:
 
         for operation in self.operations:
             operation.execute(self)
-        print(f"Final total resources: {self.model.total_resources}")
+        logging.debug(f"Final total resources: {self.model.total_resources}")
 
 
     def get_status(self):
@@ -84,7 +85,7 @@ class MultiStepSimulator:
         last_expenditure = 0
         last_tax_collected = 0
         for epoch in range(self.epochs):
-            print(f"--- Epoch {epoch + 1}/{self.epochs} ---")
+            logging.debug(f"--- Epoch {epoch + 1}/{self.epochs} ---")
 
             current_operations = list(self.operations)
             if last_expenditure > 0:
@@ -101,19 +102,19 @@ class MultiStepSimulator:
             last_expenditure = status.get("total_expenditure_incurred", 0)
             last_tax_collected = status.get("total_tax_collected", 0)
 
-            print(f"\nResource distribution summary:")
-            print(f"  Min resources: {status['min_resources']}")
-            print(f"  Max resources: {status['max_resources']}")
-            print(f"  Average resources: {status['average_resources']:.2f}")
+            logging.debug(f"\nResource distribution summary:")
+            logging.debug(f"  Min resources: {status['min_resources']}")
+            logging.debug(f"  Max resources: {status['max_resources']}")
+            logging.debug(f"  Average resources: {status['average_resources']:.2f}")
 
             if "total_tax_collected" in status:
-                print(f"\nTotal tax collected: {status['total_tax_collected']}")
-                print(f"\nResource distribution after tax:")
-                print(f"  Min resources: {status['post_tax_min_resources']}")
-                print(f"  Max resources: {status['post_tax_max_resources']}")
-                print(f"  Average resources: {status['post_tax_average_resources']:.2f}")
+                logging.debug(f"\nTotal tax collected: {status['total_tax_collected']}")
+                logging.debug(f"\nResource distribution after tax:")
+                logging.debug(f"  Min resources: {status['post_tax_min_resources']}")
+                logging.debug(f"  Max resources: {status['post_tax_max_resources']}")
+                logging.debug(f"  Average resources: {status['post_tax_average_resources']:.2f}")
             if "total_expenditure_incurred" in status:
-                print(f"\nTotal expenditure incurred: {status['total_expenditure_incurred']}")
+                logging.debug(f"\nTotal expenditure incurred: {status['total_expenditure_incurred']}")
             if plotter:
                 plotter.add_distribution(epoch + 1, simulator.get_resource_distribution())
         if plotter:
