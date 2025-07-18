@@ -1,7 +1,7 @@
 # RGRr (aka Rich Get Richer)
 
 Simulation of Rich Get Richer following preferential attachment and impact of different types of events on the
-final outcome.
+final distribution.
 
 ## Project Structure
 
