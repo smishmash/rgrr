@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import argparse
+import logging
+from rgrr.logging_config import setup_logging
 
 from rgrr.model import Model
 import rgrr.simulator as sim
@@ -11,6 +13,9 @@ from rgrr.operations import (
 )
 
 def main():
+    # Set up logging
+    setup_logging()
+
     # Set up command line argument parser
     parser = argparse.ArgumentParser(
         description='Simulate preferential resource distribution',
@@ -114,8 +119,8 @@ def main():
     if args.required_expenditure:
         operations.append(RequiredExpenditureOperation(args.required_expenditure))
 
-    print(f"Created model with {args.nodes} nodes, each starting with {args.resources} resources")
-    print(f"Initial total resources: {m.total_resources}")
+    logging.debug(f"Created model with {args.nodes} nodes, each starting with {args.resources} resources")
+    logging.debug(f"Initial total resources: {m.total_resources}")
 
     # Determine the expenditure distribution method
     expenditure_distribution_method = 'uniform' # Default
