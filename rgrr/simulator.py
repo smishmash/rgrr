@@ -4,7 +4,7 @@ from typing import Optional, Sequence
 from rgrr.fenwick_tree import FenwickTree
 from rgrr.model import Model
 from rgrr.operations import SimulatorOperation, ResourceDistributionOperation
-from rgrr.plotting import plot_resources_histogram
+from rgrr.plotting import EpochPlotter
 
 
 class Simulator:
@@ -77,6 +77,10 @@ class MultiStepSimulator:
 
     def run(self, plot_histogram: bool = False):
         """Run the simulation for a specified number of epochs."""
+        plotter = None
+        if plot_histogram:
+            plotter = EpochPlotter()
+
         last_expenditure = 0
         last_tax_collected = 0
         for epoch in range(self.epochs):
@@ -110,7 +114,7 @@ class MultiStepSimulator:
                 print(f"  Average resources: {status['post_tax_average_resources']:.2f}")
             if "total_expenditure_incurred" in status:
                 print(f"\nTotal expenditure incurred: {status['total_expenditure_incurred']}")
-            if plot_histogram:
-                plot_resources_histogram(simulator.get_resource_distribution(), f"Epoch {epoch + 1} Distribution")
-        if plot_histogram:
-            input("Waiting for <enter>... ")
+            if plotter:
+                plotter.add_distribution(epoch + 1, simulator.get_resource_distribution())
+        if plotter:
+            plotter.show()
