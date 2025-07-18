@@ -1,6 +1,6 @@
 # RGRr (aka Rich Get Richer)
 
-Simulation of Rich Get Richer following Zipf's law and impact of different types of events on the
+Simulation of Rich Get Richer following preferential attachment and impact of different types of events on the
 final outcome.
 
 ## Project Structure
@@ -16,10 +16,6 @@ rgrr/
 ```
 
 ## Getting Started
-
-### Prerequisites
-
-- Python 3.6 or higher
 
 ### Installation
 
