@@ -11,6 +11,35 @@ from rgrr.operations import (
     IncomeTaxCollectionOperation,
     RequiredExpenditureOperation
 )
+from rgrr.simulation_results import store_simulation_results, get_simulation_results
+
+def run_simulation_from_args(args) -> sim.MultiStepSimulator:
+    # Create the simulation model with initial resources
+    m = Model(args.nodes, args.resources)
+
+    operations = []
+    expenditure_distribution_method = 'uniform' # Default
+    if args.random_method:
+        operations.append(ResourceDistributionOperation.create('random', args.random_method))
+        expenditure_distribution_method = 'random'
+    if args.preferential_method:
+        operations.append(ResourceDistributionOperation.create('preferential', args.preferential_method))
+        expenditure_distribution_method = 'preferential'
+    if args.uniform_method:
+        operations.append(ResourceDistributionOperation.create('uniform', args.uniform_method))
+        expenditure_distribution_method = 'uniform'
+    if args.income_tax_rate:
+        operations.append(IncomeTaxCollectionOperation(args.income_tax_rate))
+    if args.required_expenditure:
+        operations.append(RequiredExpenditureOperation(args.required_expenditure))
+
+    logging.debug(f"Created model with {args.nodes} nodes, each starting with {args.resources} resources")
+    logging.debug(f"Initial total resources: {m.total_resources}")
+
+    # Create and run the multi-step simulation
+    multi_step_simulator = sim.MultiStepSimulator(m, args.epochs, args.seed, operations, expenditure_distribution_method)
+    multi_step_simulator.run()
+    return multi_step_simulator
 
 def main():
     # Set up logging
@@ -46,41 +75,41 @@ def main():
     )
 
     parser.add_argument(
-        '-o', '--output',
-        type=str,
-        default=None,
-        help='Output file path for the network visualization (e.g., network.png)'
-    )
-
-    parser.add_argument(
         '--epochs',
         type=int,
         default=1,
         help='Number of epochs to run the simulation'
     )
 
-    parser.add_argument(
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
         '--plot-histogram',
         action='store_true',
         help='Plot a histogram of resource counts after simulation'
     )
+    group.add_argument(
+        '--start-http-server',
+        action='store_true',
+        help='Start an HTTP server to retrieve distributions'
+    )
 
     # Operation specifications
-    parser.add_argument(
+    dist_group = parser.add_mutually_exclusive_group()
+    dist_group.add_argument(
         '--random-method',
         type=int,
         default=0,
         help='Use random method for adding resources'
     )
 
-    parser.add_argument(
+    dist_group.add_argument(
         '--preferential-method',
         type=int,
         default=0,
         help='Use preferential method for adding resources'
     )
 
-    parser.add_argument(
+    dist_group.add_argument(
         '--uniform-method',
         type=int,
         default=0,
@@ -103,38 +132,16 @@ def main():
 
     # Parse arguments
     args = parser.parse_args()
+    simulator = run_simulation_from_args(args)
+    store_simulation_results("dummy", simulator.distributions)
+    if args.plot_histogram:
+        from rgrr.plotting import EpochPlotter
+        plotter = EpochPlotter()
+        plotter.show()
 
-    # Create the simulation model with initial resources
-    m = Model(args.nodes, args.resources)
-
-    operations = []
-    if args.random_method:
-        operations.append(ResourceDistributionOperation.create('random', args.random_method))
-    if args.preferential_method:
-        operations.append(ResourceDistributionOperation.create('preferential', args.preferential_method))
-    if args.uniform_method:
-        operations.append(ResourceDistributionOperation.create('uniform', args.uniform_method))
-    if args.income_tax_rate:
-        operations.append(IncomeTaxCollectionOperation(args.income_tax_rate))
-    if args.required_expenditure:
-        operations.append(RequiredExpenditureOperation(args.required_expenditure))
-
-    logging.debug(f"Created model with {args.nodes} nodes, each starting with {args.resources} resources")
-    logging.debug(f"Initial total resources: {m.total_resources}")
-
-    # Determine the expenditure distribution method
-    expenditure_distribution_method = 'uniform' # Default
-    if args.random_method > 0:
-        expenditure_distribution_method = 'random'
-    elif args.preferential_method > 0:
-        expenditure_distribution_method = 'preferential'
-    elif args.uniform_method > 0:
-        expenditure_distribution_method = 'uniform'
-
-
-    # Create and run the multi-step simulation
-    multi_step_simulator = sim.MultiStepSimulator(m, args.epochs, args.seed, operations, expenditure_distribution_method)
-    multi_step_simulator.run(args.plot_histogram)
+    if args.start_http_server:
+        from rgrr.server import app
+        app.run(debug=True, use_reloader=False)
 
 
 if __name__ == "__main__":
