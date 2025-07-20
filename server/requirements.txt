@@ -7,3 +7,8 @@ scipy
 scipy-stubs
 mypy
 Flask
+apispec
+marshmallow
+apispec-webframeworks
+flask-swagger-ui
+swagger-ui-bundle

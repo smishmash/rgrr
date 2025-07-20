@@ -141,6 +141,21 @@ def main():
 
     if args.start_http_server:
         from rgrr.server import app
+        from flask_swagger_ui import get_swaggerui_blueprint
+
+        SWAGGER_URL = '/api/docs'  # URL for exposing Swagger UI (without trailing '/')
+        API_URL = '/swagger.json'  # Our API url (can of course be a local resource)
+
+        # Call factory function to create our blueprint
+        swaggerui_blueprint = get_swaggerui_blueprint(
+            SWAGGER_URL,
+            API_URL,
+            config={
+                'app_name': "RGRR API"
+            }
+        )
+
+        app.register_blueprint(swaggerui_blueprint)
         app.run(debug=True, use_reloader=False)
 
 
