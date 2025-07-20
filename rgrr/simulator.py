@@ -75,13 +75,10 @@ class MultiStepSimulator:
         self.operations = operations
         self.seed = seed
         self.expenditure_distribution_method = expenditure_distribution_method
+        self.distributions = []
 
-    def run(self, plot_histogram: bool = False):
+    def run(self):
         """Run the simulation for a specified number of epochs."""
-        plotter = None
-        if plot_histogram:
-            plotter = EpochPlotter()
-
         last_expenditure = 0
         last_tax_collected = 0
         for epoch in range(self.epochs):
@@ -115,7 +112,4 @@ class MultiStepSimulator:
                 logging.debug(f"  Average resources: {status['post_tax_average_resources']:.2f}")
             if "total_expenditure_incurred" in status:
                 logging.debug(f"\nTotal expenditure incurred: {status['total_expenditure_incurred']}")
-            if plotter:
-                plotter.add_distribution(epoch + 1, simulator.get_resource_distribution())
-        if plotter:
-            plotter.show()
+            self.distributions.append(simulator.get_resource_distribution())
