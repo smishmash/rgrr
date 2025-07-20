@@ -1,12 +1,13 @@
 # RGRr (aka Rich Get Richer)
 
-Simulation of Rich Get Richer following preferential attachment and impact of different types of events on the
-final distribution.
+Simulation of Rich Get Richer following preferential attachment and impact of different types of
+events on the final distribution. Program can be run standalone with distribution histograms via
+matplotlib or as a web server.
 
 ## Project Structure
 
 ```
-rgrr/
+rgrr/server/
 ├┬─ rgrr              # Bulk of the implementation
 |└── tests            # Tests for rgrr
 ├── main.py           # Main entry point of the application
