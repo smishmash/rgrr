@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -25,19 +25,21 @@ function App() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [chartData, setChartData] = useState(null);
   const [maxY, setMaxY] = useState(undefined);
+  const [chartInstance, setChartInstance] = useState(null);
+  const previousMaxYRef = useRef(undefined);
+  const animationFrameId = useRef(null);
+
+  const chartRefCallback = (node) => {
+    if (node) {
+      setChartInstance(node);
+    }
+  };
 
   useEffect(() => {
     fetch('/simulations/dummy/distribution')
       .then(response => response.json())
       .then(data => {
         setDistributions(data);
-        if (data.length > 0) {
-          const counts = data[0].reduce((acc, value) => {
-            acc[value] = (acc[value] || 0) + 1;
-            return acc;
-          }, {});
-          setMaxY(Math.max(...Object.values(counts)) * 1.1);
-        }
       });
   }, []);
 
@@ -52,6 +54,9 @@ function App() {
       const labels = Object.keys(counts);
       const values = Object.values(counts);
 
+      previousMaxYRef.current = maxY;
+      setMaxY(Math.max(...values) * 1.1 || 10);
+
       setChartData({
         labels: labels,
         datasets: [
@@ -65,6 +70,44 @@ function App() {
       });
     }
   }, [distributions, currentIndex]);
+
+  useEffect(() => {
+    if (typeof maxY === 'undefined' || !chartInstance || !chartData) {
+      return;
+    }
+
+    const chart = chartInstance;
+    const startY = previousMaxYRef.current !== undefined ? previousMaxYRef.current : maxY;
+    const endY = maxY;
+    const duration = 500;
+    let startTime = null;
+
+    const animate = (timestamp) => {
+      if (!startTime) {
+        startTime = timestamp;
+      }
+
+      const elapsed = timestamp - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easedProgress = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+
+      const currentY = startY + (endY - startY) * easedProgress;
+      chart.options.scales.y.max = currentY;
+      chart.update('none');
+
+      if (progress < 1) {
+        animationFrameId.current = requestAnimationFrame(animate);
+      }
+    };
+
+    cancelAnimationFrame(animationFrameId.current);
+    animationFrameId.current = requestAnimationFrame(animate);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId.current);
+    };
+  }, [maxY, chartData, chartInstance]);
+
 
   const handleNext = () => {
     setCurrentIndex((prevIndex) => (prevIndex + 1) % distributions.length);
@@ -81,14 +124,13 @@ function App() {
         {chartData ? (
           <div style={{ width: '80%', margin: 'auto' }}>
             <Bar
-              key={currentIndex}
+              ref={chartRefCallback}
               data={chartData}
               options={{
                 animation: false,
                 scales: {
                   y: {
                     beginAtZero: true,
-                    max: maxY,
                   },
                 },
               }}
