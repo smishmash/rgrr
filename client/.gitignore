@@ -1,23 +1,20 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+node_modules/
+public/js
 
-# dependencies
-/node_modules
-/.pnp
-.pnp.js
+/target
+/checkouts
+/src/gen
 
-# testing
-/coverage
-
-# production
-/build
-
-# misc
+pom.xml
+pom.xml.asc
+*.iml
+*.jar
+*.log
+.shadow-cljs
+.idea
+.lein-*
+.nrepl-*
 .DS_Store
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
 
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+.hgignore
+.hg/
