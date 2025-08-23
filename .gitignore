@@ -45,6 +45,6 @@ coverage.xml
 *~
 .#*
 
-# gemini
+# LLMs
 .env
 .aider*
