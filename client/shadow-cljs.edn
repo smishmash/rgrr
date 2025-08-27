@@ -1,20 +1,7 @@
-;; shadow-cljs configuration
-{:source-paths
- ["src/dev"
-  "src/main"
-  "src/test"]
-
+{:source-paths ["src/dev" "src/main" "src/test"]
  :dependencies [[reagent/reagent "2.0.0-alpha2"]
                 [cljs-http "0.1.49"]]
- :dev-http {
-            ;; 8080 "public"
-            8080 {:root "public" :proxy-url "http://localhost:5000" :proxy-predicate rgrr.server/proxy?}
-            ;; 8080 {:proxy-url "http://localhost:5000" :proxy-predicate rgrr.server/proxy?
-            ;;       }
-            ;; 8080 {:root "public" :handler rgrr.server/handler}
-            }
- :builds
- {:client {:target :browser
-           ;; :dev-http {8080 {;;:root "public"
-           ;;                  :proxy {"/simulations" {:target "http://localhost:5000"}}}}
-           :modules {:main {:init-fn rgrr.client.app/init}}}}}
+ :dev-http {8080 {:root "public" :proxy-url "http://localhost:5000" :proxy-predicate rgrr.server/proxy?}}
+ :builds {:client {:target :browser
+                   :js-options {:export-conditions ["module" "import" "browser" "require" "default"]}
+                   :modules {:main {:init-fn rgrr.client.app/init}}}}}
