@@ -3,40 +3,48 @@ import numpy.testing as npt
 import os
 import sys
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, Mock
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 from rgrr.server import app
-from rgrr.simulation_results import get_simulation_results
+import rgrr.simulation_store as sr
 
 class TestServerEndpoints(unittest.TestCase):
     def setUp(self):
         self.test_app = app.test_client()
-        self.test_app.testing = True
+        sr.simulations.clear()
+
+    def tearDown(self):
+        sr.simulations.clear()
 
 
-    @patch('rgrr.simulation_results.get_simulation_results', MagicMock(return_value = [[10, 20, 30], [15, 25, 35]]))
-    def test_get_distribution_existing_simulation(self):
+    @patch('rgrr.simulation_store.get_simulation')
+    def test_get_distribution_existing_simulation(self, mock_get_simulation):
+        sim_mock = Mock()
+        sim_mock.distributions = [[10, 20, 30], [15, 25, 35]]
+        mock_get_simulation.return_value = sim_mock
         response = self.test_app.get('/simulations/123/distributions')
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
         self.assertEqual(data, [[10, 20, 30], [15, 25, 35]])
 
 
-    @patch('rgrr.simulation_results.get_simulation_results')
-    @unittest.skip('ID not implemented.')
-    def test_get_distribution_non_existing_simulation(self, mock_get_simulation_results):
-        get_simulation_results.return_value = []
+    @patch('rgrr.simulation_store.get_simulation')
+    def test_get_distribution_non_existing_simulation(self, mock_get_simulation):
+        mock_get_simulation.return_value = None
         response = self.test_app.get('/simulations/123/distributions')
         self.assertEqual(response.status_code, 404)
         data = response.get_json()
         self.assertEqual(data['error'], 'Simulation 123 not found.')
 
 
-    @patch('rgrr.simulation_results.get_simulation_results', MagicMock(return_value = [[10, 20, 30], [15, 25, 35]]))
-    def test_get_histogram_existing_simulation(self):
+    @patch('rgrr.simulation_store.get_simulation')
+    def test_get_histogram_existing_simulation(self, mock_get_simulation):
+        sim_mock = Mock()
+        sim_mock.distributions = [[10, 20, 30], [15, 25, 35]]
+        mock_get_simulation.return_value = sim_mock
         response = self.test_app.get('/simulations/123/histograms')
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
@@ -50,10 +58,9 @@ class TestServerEndpoints(unittest.TestCase):
         npt.assert_almost_equal(data['epoch_distributions'], exp_epoch_dists)
 
 
-    @patch('rgrr.simulation_results.get_simulation_results')
-    @unittest.skip('ID not implemented.')
-    def test_get_histogram_non_existing_simulation(self, mock_get_simulation_results):
-        get_simulation_results.return_value = []
+    @patch('rgrr.simulation_store.get_simulation')
+    def test_get_histogram_non_existing_simulation(self, mock_get_simulation):
+        mock_get_simulation.return_value = None
         response = self.test_app.get('/simulations/123/histograms')
         self.assertEqual(response.status_code, 404)
         data = response.get_json()
@@ -66,3 +73,42 @@ class TestServerEndpoints(unittest.TestCase):
         data = response.get_json()
         self.assertIn('openapi', data)
         self.assertEqual(data['openapi'], '3.0.2')
+
+    def test_create_run_and_fetch_simulation(self):
+        # 1. Create a simulation
+        simulation_config = {
+            "nodes": 10,
+            "epochs": 5,
+            "resources_per_node": 1,
+            "operations": [{"type": "random", "resources_added": 5}]
+        }
+        create_response = self.test_app.post('/simulations', json=simulation_config)
+        self.assertEqual(create_response.status_code, 201)
+        create_data = create_response.get_json()
+        simulation_id = create_data['id']
+        self.assertIsNotNone(simulation_id)
+        self.assertEqual(create_data['status'], 'created')
+
+        # 2. Run the simulation
+        run_response = self.test_app.post(f'/simulations/{simulation_id}/run')
+        self.assertEqual(run_response.status_code, 200)
+        run_data = run_response.get_json()
+        self.assertEqual(run_data['id'], simulation_id)
+        self.assertEqual(run_data['status'], 'completed')
+
+        # 3. Fetch simulation distribution
+        dist_response = self.test_app.get(f'/simulations/{simulation_id}/distributions')
+        self.assertEqual(dist_response.status_code, 200)
+        dist_data = dist_response.get_json()
+        self.assertIsInstance(dist_data, list)
+        self.assertGreater(len(dist_data), 0)
+
+        # 4. Fetch simulation histogram
+        hist_response = self.test_app.get(f'/simulations/{simulation_id}/histograms')
+        self.assertEqual(hist_response.status_code, 200)
+        hist_data = hist_response.get_json()
+        self.assertIn('bin_edges', hist_data)
+        self.assertIn('epoch_distributions', hist_data)
+        self.assertIsInstance(hist_data['bin_edges'], list)
+        self.assertIsInstance(hist_data['epoch_distributions'], list)
+        self.assertGreater(len(hist_data['epoch_distributions']), 0)

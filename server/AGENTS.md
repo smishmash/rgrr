@@ -15,3 +15,7 @@
 - Error handling: Use specific exceptions, log errors appropriately
 - Docstrings: Use Google-style docstrings for public functions
 - Tests: Each test function should be isolated and cover edge cases
+
+## LLM Instructions
+
+The LLM should not start the client or the server.

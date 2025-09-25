@@ -11,7 +11,7 @@ from rgrr.operations import (
     IncomeTaxCollectionOperation,
     RequiredExpenditureOperation
 )
-from rgrr.simulation_results import store_simulation_results, get_simulation_results
+from rgrr.simulation_store import store_simulation, get_simulation
 
 def run_simulation_from_args(args) -> sim.MultiStepSimulator:
     # Create the simulation model with initial resources
@@ -133,7 +133,7 @@ def main():
     # Parse arguments
     args = parser.parse_args()
     simulator = run_simulation_from_args(args)
-    store_simulation_results("dummy", simulator.distributions)
+    store_simulation("dummy", simulator)
     if args.plot_histogram:
         from rgrr.plotting import EpochPlotter
         plotter = EpochPlotter()
