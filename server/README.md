@@ -47,6 +47,14 @@ python main.py [options]
 
 Use the `--help` option for available arguments.
 
+### Running Tests
+
+All unit tests can be run with:
+
+```bash
+python -m pytest rgrr/tests
+```
+
 ## License
 
 This project is open source and available under the MIT License. 
