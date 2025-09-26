@@ -1,21 +1,17 @@
-# RGRr Server
+# Server Development Guidelines
 
-This document provides an overview of RGRr for AI agents that assist with development.
+## Commands
+- Run all tests: `python -m pytest rgrr/tests`
+- Run single test: `python -m pytest rgrr/tests/test_server.py::test_function_name`
+- Lint: `flake8 rgrr/`
+- Format: `black rgrr/`
+- Type check: `mypy rgrr/`
 
-## Overview
-
-RGRr is a python program to simulate resource distribution using different rules, in particular
-following preferential attachment. It has a core simulator, a multi-step simulator, and different
-mechanisms for adjusting distribution of resources. It also has different visualization methods.
-
-As an AI assistant, your role is to help develop RGRr.
-
-## Python Development Guidance
-
-- **Style:** RGRr follows PEP 8. Code should pass `pw format`, which uses `black`.
-- **Generated Files:** Python packages with generated files should extend their import path in
-  `__init__.py`.
-- **Unit Testing:** Unit tests should pass after each change.
-- **Documentation:** All new code should have documentation.
-- **Typing:** All new code should have type declarations.
-- **Type Checking:** `mypy .` should not report errors after each change.
+## Code Style
+- Follow PEP 8 with 4-space indentation
+- Import ordering: standard library, third-party, local imports
+- Use type hints for all function parameters and return values
+- Naming: snake_case for functions and variables, PascalCase for classes
+- Error handling: Use specific exceptions, log errors appropriately
+- Docstrings: Use Google-style docstrings for public functions
+- Tests: Each test function should be isolated and cover edge cases
