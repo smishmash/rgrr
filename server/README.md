@@ -57,4 +57,5 @@ python -m pytest rgrr/tests
 
 ## License
 
-This project is open source and available under the MIT License. 
+This project is open source and available under the MIT License. See the main `LICENSE` file in the
+project root for details.
