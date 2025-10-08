@@ -6,7 +6,7 @@
             ["@nivo/bar" :refer [ResponsiveBar]]
             [reagent.core :as r]
             [reagent.dom.client :as rdc]
-            [shadow.css]))
+            [shadow.css :refer (css)]))
 
 (def histogram-data (atom {}))
 (def histogram-index (r/atom 0))
@@ -29,7 +29,9 @@
    []))
 
 (defn render-header []
-  [:div {:style {:width "100%" :text-align "center"}}
+  [:div
+   {:class (css :shadow {:color "red"})}
+   ;; {:style {:width "100%" :text-align "center" :color "red"}}
    [:h2 "Epoch " @histogram-index]])
 
 (defn render-chart []
