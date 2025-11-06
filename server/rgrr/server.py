@@ -1,11 +1,19 @@
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 from apispec_webframeworks.flask import FlaskPlugin
-from flask import Flask, Response
+from flask import Flask, Response, request
 import json
 import numpy as np
-from rgrr.simulation_results import get_simulation_results
-import rgrr.simulation_results as sr
+import rgrr.simulation_store as sr
+from rgrr.model import Model
+from rgrr.simulator import MultiStepSimulator
+from rgrr.operations import (
+    RandomResourceDistribution,
+    PreferentialResourceDistribution,
+    UniformResourceDistribution,
+    IncomeTaxCollectionOperation,
+    RequiredExpenditureOperation
+)
 
 app = Flask(__name__)
 
@@ -20,14 +28,14 @@ spec = APISpec(
 # Flask json encoder isn't customizable
 class NumpyEncoder(json.JSONEncoder):
     """ Special json encoder for numpy types """
-    def default(self, obj):
-        if isinstance(obj, np.integer):
-            return int(obj)
-        elif isinstance(obj, np.floating):
-            return float(obj)
-        elif isinstance(obj, np.ndarray):
-            return obj.tolist()
-        return json.JSONEncoder.default(self, obj)
+    def default(self, o):
+        if isinstance(o, np.integer):
+            return int(o)
+        elif isinstance(o, np.floating):
+            return float(o)
+        elif isinstance(o, np.ndarray):
+            return o.tolist()
+        return json.JSONEncoder.default(self, o)
 
 
 def jsonify(value):
@@ -54,22 +62,29 @@ def get_distribution(id):
         '404':
             description: Simulation not found
     """
-    distributions = sr.get_simulation_results(id)
+    simulation = sr.get_simulation(id)
+    if not simulation:
+        return jsonify({"error": f"Simulation {id} not found."}), 404
+    distributions = simulation.distributions
     if distributions:
         return jsonify(distributions)
     else:
-        return jsonify({"error": f"Simulation {id} not found."}), 404
+        return jsonify({"error": f"Simulation {id} has not run."}), 400
 
 
 @app.route('/simulations/<string:id>/histograms', methods=['GET'])
 def get_histogram(id):
-    distributions = sr.get_simulation_results(id)
-    if not distributions:
+    simulation = sr.get_simulation(id)
+    if not simulation:
         return jsonify({"error": f"Simulation {id} not found."}), 404
+    distributions = simulation.distributions
+    if not distributions:
+        return jsonify({"error": f"Simulation {id} has not run."}), 400
     hist_min = min(min(d) for d in distributions)
     hist_max = max(max(d) for d in distributions)
     bin_count = 20              # Make this dynamic?
     result = []
+    bin_edges = [] # Initialize bin_edges
     # bin edges will be the same for each histogram
     for d in distributions:
         counts, bin_edges = np.histogram(d, bins=bin_count, range=(hist_min, hist_max), density=True)
@@ -80,8 +95,151 @@ def get_histogram(id):
         })
 
 
+@app.route('/simulations', methods=['POST'])
+def create_simulation():
+    """Create a new simulation
+    ---
+    post:
+      summary: Create a new simulation
+      description: Create a new simulation with specified parameters
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nodes:
+                  type: integer
+                  description: Number of nodes in the simulation
+                epochs:
+                  type: integer
+                  description: Number of epochs to run
+                resources_per_node:
+                  type: integer
+                  description: Initial resources per node
+                seed:
+                  type: integer
+                  description: Random seed for reproducibility
+                operations:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                        description: Type of operation (random, preferential, uniform, tax, expenditure)
+                      resources_added:
+                        type: integer
+                        description: Resources to add (for distribution operations)
+                      tax_rate:
+                        type: number
+                        description: Tax rate (for tax operation)
+                      expenditure:
+                        type: integer
+                        description: Expenditure amount (for expenditure operation)
+                  description: List of operations to perform
+              required:
+                - nodes
+                - epochs
+                - resources_per_node
+                - operations
+      responses:
+        '201':
+          description: Simulation created successfully
+        '400':
+          description: Invalid request parameters
+    """
+    try:
+        data = request.get_json()
+
+        # Validate required parameters
+        if not data:
+            return jsonify({"error": "No JSON data provided"}), 400
+
+        nodes = data.get('nodes')
+        epochs = data.get('epochs')
+        resources_per_node = data.get('resources_per_node')
+        seed = data.get('seed')
+        operations_data = data.get('operations', [])
+
+        if None in (nodes, epochs, resources_per_node, operations_data):
+            return jsonify({"error": "Missing required parameters: nodes, epochs, resources_per_node, operations"}), 400
+
+        # Parse operations
+        operations = []
+        for op_data in operations_data:
+            op_type = op_data.get('type')
+            if op_type == 'random':
+                operation = RandomResourceDistribution(op_data.get('resources_added', 0))
+            elif op_type == 'preferential':
+                operation = PreferentialResourceDistribution(op_data.get('resources_added', 0))
+            elif op_type == 'uniform':
+                operation = UniformResourceDistribution(op_data.get('resources_added', 0))
+            elif op_type == 'tax':
+                operation = IncomeTaxCollectionOperation(op_data.get('tax_rate', 0.0))
+            elif op_type == 'expenditure':
+                operation = RequiredExpenditureOperation(op_data.get('expenditure', 0))
+            else:
+                # This case should ideally not happen if create_simulation validated correctly
+                return jsonify({"error": f"Unknown operation type: {op_type}"}), 400
+            operations.append(operation)
+
+        # Create simulation
+        model = Model(nodes, resources_per_node)
+        simulator = MultiStepSimulator(model=model, epochs=epochs, seed=seed, operations=operations)
+
+        # Store the simulation configuration for later execution
+        import uuid
+        simulation_id = str(uuid.uuid4())
+        sr.store_simulation(simulation_id, simulator)
+
+        return jsonify({
+            "id": simulation_id,
+            "status": "created"
+        }), 201
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to create simulation: {str(e)}"}), 500
+
+
+@app.route('/simulations/<string:id>/run', methods=['POST'])
+def run_simulation(id):
+    """Run a previously created simulation
+    ---
+    post:
+      summary: Run a simulation
+      description: Run a simulation identified by its ID
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          description: Simulation ID to run
+      responses:
+        '200':
+          description: Simulation run successfully
+        '404':
+          description: Simulation ID not found
+        '500':
+          description: Failed to run simulation
+    """
+    try:
+        simulator = sr.get_simulation(id)
+        simulator.run()
+        return jsonify({
+            "id": id,
+            "status": "completed"
+        }), 200
+    except Exception as e:
+        return jsonify({"error": f"Failed to run simulation {id}: {str(e)}"}), 500
+
+
 with app.test_request_context():
     spec.path(view=get_distribution)
+    spec.path(view=run_simulation)
+
 
 @app.route('/swagger.json')
 def swagger_json():

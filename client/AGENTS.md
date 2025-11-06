@@ -2,7 +2,8 @@
 
 ## Commands
 
-- Start development server and repl, and set up client watch: `npx shadow-cljs run repl/start`
+- Start development server and repl, and set up client watch: `npx shadow-cljs run repl/start`. Use
+  this command in place of `npx shadow-cljs watch app`.
 - Clean build artifacts: `npx shadow-cljs clean`
 - Install ClojureScript dependencies: `npm install` (from `client/` directory)
 
@@ -24,3 +25,7 @@
 
 Automated tests for the client are not explicitly configured at this time. Manual testing is
 performed by running the application in a browser.
+
+## LLM Instructions
+
+The LLM should not start the client or the server.

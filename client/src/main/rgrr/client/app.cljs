@@ -8,14 +8,27 @@
             [reagent.dom.client :as rdc]
             [shadow.css :refer (css)]))
 
+(def simulation-config
+  {:nodes 100
+   :epochs 10
+   :resources_per_node 1
+   :operations [{:type "preferential" :resources_added 10}]})
+
+(defonce simulation-id (r/atom nil)) ; To store the ID of the created simulation
+
 (def histogram-data (atom {}))
 (def histogram-index (r/atom 0))
 (def histogram-current (r/atom ()))
 
-(defn fetch-histogram []
+(defn create-and-fetch-simulation []
   (go
-    (let [resp (async/<! (http/get "/simulations/dummy/histograms"))]
-      (reset! histogram-data (:body resp)))))
+    (let [resp (async/<! (http/post "/simulations" {:json-params simulation-config}))
+          id (:id (:body resp))]
+      (reset! simulation-id id)
+      (js/console.log (str "Created simulation with ID: " id))
+      (async/<! (http/post (str "/simulations/" id "/run")))
+      (let [resp (async/<! (http/get (str "/simulations/" @simulation-id "/histograms")))]
+        (reset! histogram-data (:body resp))))))
 
 (defonce root (delay (rdc/create-root (js/document.getElementById "app"))))
 
@@ -82,4 +95,5 @@
 (add-watch histogram-index :set-epoch update-current)
 
 (defn ^:export ^:dev/after-load init []
-  (fetch-histogram))
+  ;; Create a simulation on application load
+  (go (create-and-fetch-simulation)))
