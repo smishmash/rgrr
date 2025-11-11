@@ -236,9 +236,32 @@ def run_simulation(id):
         return jsonify({"error": f"Failed to run simulation {id}: {str(e)}"}), 500
 
 
+@app.route('/simulations', methods=['GET'])
+def list_simulations():
+    """
+    ---
+    get:
+      summary: Get a list of all simulation IDs
+      responses:
+        200:
+          description: A list of simulation IDs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+    """
+    simulation_ids = sr.list_simulation_ids()
+    return jsonify(simulation_ids)
+
+
 with app.test_request_context():
     spec.path(view=get_distribution)
+    spec.path(view=get_histogram)
+    spec.path(view=create_simulation)
     spec.path(view=run_simulation)
+    spec.path(view=list_simulations)
 
 
 @app.route('/swagger.json')
