@@ -3,8 +3,6 @@ from matplotlib.widgets import RadioButtons
 import numpy as np
 from scipy.stats import pareto
 
-from .simulation_store import get_simulation
-
 class EpochPlotter:
     def __init__(self):
         self.fig, self.ax = plt.subplots()
@@ -14,6 +12,7 @@ class EpochPlotter:
         self.ylim = None
 
     def plot_current_epoch(self):
+        from .simulation_store import get_simulation # Imported locally to prevent circular dependency
         self.ax.clear()
         distributions = get_simulation("dummy").distributions
         distribution = distributions[self.current_epoch - 1]
@@ -40,6 +39,7 @@ class EpochPlotter:
         plt.draw()
 
     def key_press(self, event):
+        from .simulation_store import get_simulation # Imported locally to prevent circular dependency
         distributions = get_simulation("dummy").distributions
         if event.key == 'right':
             if self.current_epoch < len(distributions):
@@ -55,6 +55,7 @@ class EpochPlotter:
                     self.radio.set_active(self.current_epoch - 1)
 
     def show(self):
+        from .simulation_store import get_simulation # Imported locally to prevent circular dependency
         distributions = get_simulation("dummy").distributions
         # Determine global x and y ranges
         global_min_x, global_max_x = float('inf'), float('-inf')

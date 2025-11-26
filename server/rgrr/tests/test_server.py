@@ -112,3 +112,43 @@ class TestServerEndpoints(unittest.TestCase):
         self.assertIsInstance(hist_data['bin_edges'], list)
         self.assertIsInstance(hist_data['epoch_distributions'], list)
         self.assertGreater(len(hist_data['epoch_distributions']), 0)
+
+    def test_list_simulations_empty(self):
+        """
+        Test that GET /simulations returns an empty list when no simulations exist.
+        """
+        response = self.test_app.get('/simulations')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json(), [])
+
+    def test_list_simulations_with_data(self):
+        """
+        Test that GET /simulations returns a list of simulation IDs when simulations exist.
+        """
+        # Create a first simulation
+        response1 = self.test_app.post('/simulations', json={
+            "nodes": 10,
+            "epochs": 1,
+            "resources_per_node": 10,
+            "operations": [{"type": "random", "resources_added": 100}]
+        })
+        self.assertEqual(response1.status_code, 201)
+        sim_id1 = response1.get_json()['id']
+
+        # Create a second simulation
+        response2 = self.test_app.post('/simulations', json={
+            "nodes": 5,
+            "epochs": 2,
+            "resources_per_node": 5,
+            "operations": [{"type": "uniform", "resources_added": 50}]
+        })
+        self.assertEqual(response2.status_code, 201)
+        sim_id2 = response2.get_json()['id']
+
+        list_response = self.test_app.get('/simulations')
+        self.assertEqual(list_response.status_code, 200)
+        retrieved_ids = list_response.get_json()
+        self.assertIsInstance(retrieved_ids, list)
+        self.assertIn(sim_id1, retrieved_ids)
+        self.assertIn(sim_id2, retrieved_ids)
+        self.assertEqual(len(retrieved_ids), 2)
