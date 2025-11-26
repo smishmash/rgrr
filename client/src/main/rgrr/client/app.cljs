@@ -16,21 +16,35 @@
 
 (defonce simulation-id (r/atom nil)) ; To store the ID of the created simulation
 
+(defonce simulation-list (r/atom []))
+
 (def histogram-data (atom {}))
 (def histogram-index (r/atom 0))
-(def histogram-current (r/atom ()))
+(def histogram-current (r/atom ())) 
+
+(defn fetch-simulation-list []
+  (go
+    (let [resp (async/<! (http/get "/simulations"))]
+      (reset! simulation-list (:body resp)))))
+
+(defn load-simulation-histogram []
+  (go
+    (let [id @simulation-id
+          resp (async/<! (http/get (str "/simulations/" id "/histograms")))]
+      (reset! histogram-data (:body resp))
+      (reset! histogram-index 0)))) ; Reset index to 0 when loading a new simulation
 
 (defn create-and-fetch-simulation []
   (go
     (let [resp (async/<! (http/post "/simulations" {:json-params simulation-config}))
           id (:id (:body resp))]
-      (reset! simulation-id id)
       (js/console.log (str "Created simulation with ID: " id))
       (async/<! (http/post (str "/simulations/" id "/run")))
-      (let [resp (async/<! (http/get (str "/simulations/" @simulation-id "/histograms")))]
-        (reset! histogram-data (:body resp))))))
+      (reset! simulation-id id)
+      (async/<! (fetch-simulation-list)))))
 
-(defonce root (delay (rdc/create-root (js/document.getElementById "app"))))
+(defonce histogram-root (delay (rdc/create-root (js/document.getElementById "app"))))
+(defonce simulations-root (delay (rdc/create-root (js/document.getElementById "app-simulations"))))
 
 (defn get-histogram-data [index]
   (if (not (empty? @histogram-data))
@@ -40,6 +54,16 @@
          data (nth (:epoch_distributions @histogram-data) index)]
      (map (fn [l d] {"id" (pp/cl-format nil "~,2f" l) "density" d}) labels data))
    []))
+
+(defn render-simulation-list-panel []
+  [:div {:style {:border-bottom "1px solid #ccc" :padding "10px" :margin-bottom "10px"}}
+   [:h3 "Simulations"]
+   [:ul
+    (for [id @simulation-list]
+      [:li {:key id
+            :on-click #(reset! simulation-id id)
+            :style {:cursor "pointer" :text-decoration (if (= id @simulation-id) "underline" "none")}} 
+       id])]])
 
 (defn render-header []
   [:div
@@ -80,12 +104,17 @@
       "Next"]]))
 
 (defn render-histogram []
-  (rdc/render @root
+  (rdc/render @histogram-root
               [(fn []
                  [:div
                   [render-header]
                   [render-chart]
                   [render-controls]])]))
+
+(defn render-simulations-panel []
+  (rdc/render @simulations-root
+              [(fn []
+                 [render-simulation-list-panel])]))
 
 (defn update-current []
   (reset! histogram-current (get-histogram-data @histogram-index)))
@@ -93,7 +122,13 @@
 (add-watch histogram-data :redisplay render-histogram)
 (add-watch histogram-data :set-epoch update-current)
 (add-watch histogram-index :set-epoch update-current)
+(add-watch simulation-list :redisplay render-simulations-panel)
+(add-watch simulation-id :redisplay load-simulation-histogram)
 
 (defn ^:export ^:dev/after-load init []
-  ;; Create a simulation on application load
-  (go (create-and-fetch-simulation)))
+  (go
+    (async/<! (fetch-simulation-list))
+    (when (empty? @simulation-list)
+      (async/<! (create-and-fetch-simulation)))
+    (render-histogram)
+    (render-simulations-panel)))
