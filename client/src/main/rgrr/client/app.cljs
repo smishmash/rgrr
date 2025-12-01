@@ -8,15 +8,12 @@
             [reagent.dom.client :as rdc]
             [shadow.css :refer (css)]))
 
-(def simulation-config
-  {:nodes 100
-   :epochs 10
-   :resources_per_node 1
-   :operations [{:type "preferential" :resources_added 10}]})
+(defonce histogram-root (delay (rdc/create-root (js/document.getElementById "app"))))
+(defonce simulations-root (delay (rdc/create-root (js/document.getElementById "app-simulations"))))
 
-(defonce simulation-id (r/atom nil)) ; To store the ID of the created simulation
-
-(defonce simulation-list (r/atom []))
+(defonce simulation-id (r/atom nil))    ; The current simulation's ID
+(defonce simulation-details (r/atom nil)) ; The current simulation's details
+(defonce simulation-list (r/atom []))     ; All known simulations
 
 (def histogram-data (atom {}))
 (def histogram-index (r/atom 0))
@@ -34,18 +31,6 @@
       (reset! histogram-data (:body resp))
       (reset! histogram-index 0)))) ; Reset index to 0 when loading a new simulation
 
-(defn create-and-fetch-simulation []
-  (go
-    (let [resp (async/<! (http/post "/simulations" {:json-params simulation-config}))
-          id (:id (:body resp))]
-      (js/console.log (str "Created simulation with ID: " id))
-      (async/<! (http/post (str "/simulations/" id "/run")))
-      (reset! simulation-id id)
-      (async/<! (fetch-simulation-list)))))
-
-(defonce histogram-root (delay (rdc/create-root (js/document.getElementById "app"))))
-(defonce simulations-root (delay (rdc/create-root (js/document.getElementById "app-simulations"))))
-
 (defn get-histogram-data [index]
   (if (not (empty? @histogram-data))
    (let [labels (map #(/ (+ %1 %2) 2)
@@ -54,6 +39,11 @@
          data (nth (:epoch_distributions @histogram-data) index)]
      (map (fn [l d] {"id" (pp/cl-format nil "~,2f" l) "density" d}) labels data))
    []))
+
+(defn fetch-simulation-details [id]
+  (go
+    (let [resp (async/<! (http/get (str "/simulations/" id)))]
+      (reset! simulation-details (:body resp)))))
 
 (defn render-simulation-list-panel []
   [:div {:style {:border-bottom "1px solid #ccc" :padding "10px" :margin-bottom "10px"}}
@@ -111,10 +101,35 @@
                   [render-chart]
                   [render-controls]])]))
 
+(defn render-simulation-detail-panel []
+  [:div
+   (when @simulation-details
+     [:div
+      [:h3 (str "Simulation Details: " (:id @simulation-details))]
+      [:p (str "Nodes: " (:nodes @simulation-details))]
+      [:p (str "Epochs: " (:epochs @simulation-details))]
+      [:p (str "Resources per Node: " (:resources_per_node @simulation-details))]
+      [:p (str "Seed: " (:seed @simulation-details))]
+      [:h4 "Operations:"]
+      [:ul
+       (for [op (:operations @simulation-details)]
+         [:li {:key (random-uuid)}
+          [:p (str "Type: " (:type op))]
+          (when (:resources_added op)
+            [:p (str "Resources Added: " (:resources_added op))])
+          (when (:tax_rate op)
+            [:p (str "Tax Rate: " (:tax_rate op))])
+          (when (:expenditure op)
+            [:p (str "Expenditure: " (:expenditure op))])])]])])
+
 (defn render-simulations-panel []
   (rdc/render @simulations-root
               [(fn []
-                 [render-simulation-list-panel])]))
+                 [:div {:style {:display "flex" :flex-direction "row"}}
+                  [:div {:style {:flex "1" :padding "10px" :border-right "1px solid #ccc"}}
+                   [render-simulation-list-panel]]
+                  [:div {:style {:flex "2" :padding "10px"}}
+                   [render-simulation-detail-panel]]])]))
 
 (defn update-current []
   (reset! histogram-current (get-histogram-data @histogram-index)))
@@ -123,12 +138,15 @@
 (add-watch histogram-data :set-epoch update-current)
 (add-watch histogram-index :set-epoch update-current)
 (add-watch simulation-list :redisplay render-simulations-panel)
-(add-watch simulation-id :redisplay load-simulation-histogram)
+
+(defn on-simulation-id-change [key atom old-val new-val]
+  (when (and new-val (not= old-val new-val))
+    (go
+      (async/<! (fetch-simulation-details new-val))
+      (async/<! (load-simulation-histogram)))))
+
+(add-watch simulation-id :id-change on-simulation-id-change)
 
 (defn ^:export ^:dev/after-load init []
   (go
-    (async/<! (fetch-simulation-list))
-    (when (empty? @simulation-list)
-      (async/<! (create-and-fetch-simulation)))
-    (render-histogram)
-    (render-simulations-panel)))
+    (async/<! (fetch-simulation-list))))

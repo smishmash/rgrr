@@ -12,7 +12,7 @@ from rgrr.operations import (
     PreferentialResourceDistribution,
     UniformResourceDistribution,
     IncomeTaxCollectionOperation,
-    RequiredExpenditureOperation
+    RequiredExpenditureOperation,
 )
 
 app = Flask(__name__)
@@ -27,7 +27,8 @@ spec = APISpec(
 
 # Flask json encoder isn't customizable
 class NumpyEncoder(json.JSONEncoder):
-    """ Special json encoder for numpy types """
+    """Special json encoder for numpy types"""
+
     def default(self, o):
         if isinstance(o, np.integer):
             return int(o)
@@ -256,12 +257,92 @@ def list_simulations():
     return jsonify(simulation_ids)
 
 
+@app.route("/simulations/<string:id>", methods=["GET"])
+def get_simulation_details(id):
+    """Get simulation details
+    ---
+    get:
+      summary: Get simulation details
+      description: Get detailed information about a specific simulation
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+        description: Simulation ID
+      responses:
+        '200':
+          description: Simulation details
+        '404':
+          description: Simulation not found
+    """
+    simulation = sr.get_simulation(id)
+    if not simulation:
+        return jsonify({"error": f"Simulation {id} not found."}), 404
+
+    operations_data = []
+    for op in simulation.operations:
+        op_type_str = ""
+        if isinstance(op, RandomResourceDistribution):
+            op_type_str = "random"
+        elif isinstance(op, PreferentialResourceDistribution):
+            op_type_str = "preferential"
+        elif isinstance(op, UniformResourceDistribution):
+            op_type_str = "uniform"
+        elif isinstance(op, IncomeTaxCollectionOperation):
+            op_type_str = "tax"
+        elif isinstance(op, RequiredExpenditureOperation):
+            op_type_str = "expenditure"
+
+        op_dict = {
+            "type": op_type_str,
+            "resources_added": 0,
+            "tax_rate": 0.0,
+            "expenditure": 0,
+        }
+
+        if isinstance(
+            op,
+            (
+                RandomResourceDistribution,
+                PreferentialResourceDistribution,
+                UniformResourceDistribution,
+            ),
+        ):
+            op_dict["resources_added"] = op.resources_added
+            del op_dict["tax_rate"]
+            del op_dict["expenditure"]
+        elif isinstance(op, IncomeTaxCollectionOperation):
+            op_dict["tax_rate"] = op.tax_rate
+            del op_dict["resources_added"]
+            del op_dict["expenditure"]
+        elif isinstance(op, RequiredExpenditureOperation):
+            op_dict["expenditure"] = op.expenditure
+            del op_dict["resources_added"]
+            del op_dict["tax_rate"]
+        operations_data.append(op_dict)
+
+    details = {
+        "id": id,
+        "nodes": simulation.model.Nodes.__len__(),
+        "epochs": simulation.epochs,
+        "resources_per_node": simulation.model.Nodes[0].resources
+        if simulation.model.Nodes
+        else 0,
+        "seed": simulation.seed,
+        "operations": operations_data,
+    }
+    return jsonify(details)
+
+
 with app.test_request_context():
     spec.path(view=get_distribution)
     spec.path(view=get_histogram)
     spec.path(view=create_simulation)
     spec.path(view=run_simulation)
     spec.path(view=list_simulations)
+    spec.path(view=get_simulation_details)
 
 
 @app.route('/swagger.json')

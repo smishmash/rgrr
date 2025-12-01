@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 from rgrr.server import app
 import rgrr.simulation_store as sr
 
+
 class TestServerEndpoints(unittest.TestCase):
     def setUp(self):
         self.test_app = app.test_client()
@@ -152,3 +153,111 @@ class TestServerEndpoints(unittest.TestCase):
         self.assertIn(sim_id1, retrieved_ids)
         self.assertIn(sim_id2, retrieved_ids)
         self.assertEqual(len(retrieved_ids), 2)
+
+    def test_get_simulation_details(self):
+        """Test that GET /simulations/<id> returns correct simulation details."""
+        # 1. Create a simulation with various operations
+        simulation_config = {
+            "nodes": 20,
+            "epochs": 10,
+            "resources_per_node": 5,
+            "seed": 123,
+            "operations": [
+                {"type": "random", "resources_added": 10},
+                {"type": "preferential", "resources_added": 20},
+                {"type": "uniform", "resources_added": 30},
+                {"type": "tax", "tax_rate": 0.1},
+                {"type": "expenditure", "expenditure": 2},
+            ],
+        }
+        create_response = self.test_app.post("/simulations", json=simulation_config)
+        self.assertEqual(create_response.status_code, 201)
+        simulation_id = create_response.get_json()["id"]
+
+        # 2. Fetch simulation details
+        details_response = self.test_app.get(f"/simulations/{simulation_id}")
+        self.assertEqual(details_response.status_code, 200)
+        details_data = details_response.get_json()
+
+        # 3. Assert the returned details are correct
+        self.assertEqual(details_data["id"], simulation_id)
+        self.assertEqual(details_data["nodes"], simulation_config["nodes"])
+        self.assertEqual(details_data["epochs"], simulation_config["epochs"])
+        self.assertEqual(
+            details_data["resources_per_node"], simulation_config["resources_per_node"]
+        )
+        self.assertEqual(details_data["seed"], simulation_config["seed"])
+
+        # Assert operations
+        self.assertEqual(
+            len(details_data["operations"]), len(simulation_config["operations"])
+        )
+        for i, op_data in enumerate(details_data["operations"]):
+            expected_op = simulation_config["operations"][i]
+            self.assertEqual(op_data["type"], expected_op["type"])
+            if "resources_added" in expected_op:
+                self.assertEqual(
+                    op_data["resources_added"], expected_op["resources_added"]
+                )
+            if "tax_rate" in expected_op:
+                self.assertEqual(op_data["tax_rate"], expected_op["tax_rate"])
+            if "expenditure" in expected_op:
+                self.assertEqual(op_data["expenditure"], expected_op["expenditure"])
+
+
+    def test_details_of_missing_simulation_return_error(self):
+        # Test for non-existent simulation
+        non_existent_id = "non-existent-id"
+        not_found_response = self.test_app.get(f"/simulations/{non_existent_id}")
+        self.assertEqual(not_found_response.status_code, 404)
+        self.assertEqual(
+            not_found_response.get_json()["error"],
+            f"Simulation {non_existent_id} not found.",
+        )
+
+    def test_create_and_fetch_simulation_json_match(self):
+        """Test that the JSON used to create a simulation matches the fetched details."""
+        initial_config = {
+            "nodes": 15,
+            "epochs": 7,
+            "resources_per_node": 3,
+            "seed": 456,
+            "operations": [
+                {"type": "random", "resources_added": 10},
+                {"type": "tax", "tax_rate": 0.05},
+                {"type": "expenditure", "expenditure": 1},
+            ],
+        }
+
+        # Create the simulation
+        create_response = self.test_app.post("/simulations", json=initial_config)
+        self.assertEqual(create_response.status_code, 201)
+        simulation_id = create_response.get_json()["id"]
+
+        # Fetch the simulation details
+        details_response = self.test_app.get(f"/simulations/{simulation_id}")
+        self.assertEqual(details_response.status_code, 200)
+        fetched_details = details_response.get_json()
+
+        # Prepare expected details for comparison
+        expected_details = {
+            "id": simulation_id,
+            "nodes": initial_config["nodes"],
+            "epochs": initial_config["epochs"],
+            "resources_per_node": initial_config["resources_per_node"],
+            "seed": initial_config["seed"],
+            "operations": [],
+        }
+
+        for op in initial_config["operations"]:
+            op_copy = op.copy()
+            if op_copy["type"] == "random":
+                op_copy["type"] = "random"
+            elif op_copy["type"] == "tax":
+                op_copy["type"] = "tax"
+            elif op_copy["type"] == "expenditure":
+                op_copy["type"] = "expenditure"
+            expected_details["operations"].append(op_copy)
+
+        # Compare fetched details with expected details
+        self.assertDictEqual(fetched_details, expected_details)
