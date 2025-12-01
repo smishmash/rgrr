@@ -14,7 +14,9 @@
    :resources_per_node 1
    :operations [{:type "preferential" :resources_added 10}]})
 
+(defonce current-view (r/atom :list)) ; :list or :details
 (defonce simulation-id (r/atom nil)) ; To store the ID of the created simulation
+(defonce simulation-details (r/atom nil)) ; To store details of the selected simulation
 
 (defonce simulation-list (r/atom []))
 
@@ -55,13 +57,18 @@
      (map (fn [l d] {"id" (pp/cl-format nil "~,2f" l) "density" d}) labels data))
    []))
 
+(defn fetch-simulation-details [id]
+  (go
+    (let [resp (async/<! (http/get (str "/simulations/" id)))]
+      (reset! simulation-details (:body resp)))))
+
 (defn render-simulation-list-panel []
   [:div {:style {:border-bottom "1px solid #ccc" :padding "10px" :margin-bottom "10px"}}
    [:h3 "Simulations"]
    [:ul
     (for [id @simulation-list]
       [:li {:key id
-            :on-click #(reset! simulation-id id)
+            :on-click #(do (reset! simulation-id id) (fetch-simulation-details id) (reset! current-view :details))
             :style {:cursor "pointer" :text-decoration (if (= id @simulation-id) "underline" "none")}} 
        id])]])
 
@@ -111,10 +118,34 @@
                   [render-chart]
                   [render-controls]])]))
 
+(defn render-simulation-detail-panel []
+  [:div
+   [:button {:on-click #(reset! current-view :list)} "Back to List"]
+   (when @simulation-details
+     [:div
+      [:h3 (str "Simulation Details: " (:id @simulation-details))]
+      [:p (str "Nodes: " (:nodes @simulation-details))]
+      [:p (str "Epochs: " (:epochs @simulation-details))]
+      [:p (str "Resources per Node: " (:resources_per_node @simulation-details))]
+      [:p (str "Seed: " (:seed @simulation-details))]
+      [:h4 "Operations:"]
+      [:ul
+       (for [op (:operations @simulation-details)]
+         [:li {:key (random-uuid)}
+          [:p (str "Type: " (:type op))]
+          (when (:resources_added op)
+            [:p (str "Resources Added: " (:resources_added op))])
+          (when (:tax_rate op)
+            [:p (str "Tax Rate: " (:tax_rate op))])
+          (when (:expenditure op)
+            [:p (str "Expenditure: " (:expenditure op))])])]])])
+
 (defn render-simulations-panel []
   (rdc/render @simulations-root
               [(fn []
-                 [render-simulation-list-panel])]))
+                 (if (= @current-view :list)
+                   [render-simulation-list-panel]
+                   [render-simulation-detail-panel]))]))
 
 (defn update-current []
   (reset! histogram-current (get-histogram-data @histogram-index)))
@@ -123,7 +154,7 @@
 (add-watch histogram-data :set-epoch update-current)
 (add-watch histogram-index :set-epoch update-current)
 (add-watch simulation-list :redisplay render-simulations-panel)
-(add-watch simulation-id :redisplay load-simulation-histogram)
+; (add-watch simulation-id :redisplay load-simulation-histogram) ; Removed, as details view will handle loading
 
 (defn ^:export ^:dev/after-load init []
   (go
